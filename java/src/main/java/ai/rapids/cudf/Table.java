@@ -699,7 +699,6 @@ public final class Table implements AutoCloseable {
 
   private void assertForBounds(Table valueTable) {
     assert this.getRowCount() != 0 : "Input table cannot be empty";
-    assert valueTable.getRowCount() != 0 : "Value table cannot be empty";
     for (int i = 0; i < Math.min(columns.length, valueTable.columns.length); i++) {
       assert valueTable.columns[i].getType() == this.getColumn(i).getType() :
           "Input and values tables' data types do not match";

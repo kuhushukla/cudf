@@ -914,22 +914,6 @@ public class TableTest extends CudfTestBase {
   }
 
   @Test
-  void testBoundsEmptyValues() {
-    boolean[] descFlags = new boolean[1];
-    try (ColumnVector cv = new ColumnVector(DType.INT64,
-        0, Optional.of(0L), null, null);
-        Table table = new TestBuilder()
-            .column(10, 20, 20, 20, 20)
-            .build();
-        Table values = new Table(cv)) {
-      assertThrows(AssertionError.class,
-          () -> getBoundsCv(descFlags, true, table, values).close());
-      assertThrows(AssertionError.class,
-          () -> getBoundsCv(descFlags, false, table, values).close());
-    }
-  }
-
-  @Test
   void testBoundsEmptyInput() {
     boolean[] descFlags = new boolean[1];
     try (ColumnVector cv = new ColumnVector(DType.INT64,
