@@ -73,6 +73,10 @@ public final class Table implements AutoCloseable {
     nativeHandle = createCudfTableView(viewPointers);
   }
 
+  Table(int numRows) {
+    this.columns = new ColumnVector[0];
+    this.rows = numRows;
+  }
   private Table(long[] cudfColumns) {
     assert cudfColumns != null : "CudfColumns can't be null";
     this.columns = new ColumnVector[cudfColumns.length];
@@ -624,15 +628,20 @@ public final class Table implements AutoCloseable {
       throw new IllegalArgumentException("concatenate requires 2 or more tables");
     }
     long amount = 0;
+    int rows = 0;
     int numColumns = tables[0].getNumberOfColumns();
     long[] tableHandles = new long[tables.length];
     for (int i = 0; i < tables.length; ++i) {
+      rows += tables[i].getRowCount();
       amount += tables[i].getDeviceMemorySize();
-      tableHandles[i] = tables[i].nativeHandle;
+      if(tables[i].getNumberOfColumns() > 0)
+        tableHandles[i] = tables[i].nativeHandle;
       assert tables[i].getNumberOfColumns() == numColumns : "all tables must have the same schema";
     }
     try (DevicePrediction prediction = new DevicePrediction(amount, "concat")) {
-      return new Table(concatenate(tableHandles));
+      if (tableHandles.length > 0)
+        return new Table(concatenate(tableHandles));
+      else return new Table(rows);
     }
   }
 

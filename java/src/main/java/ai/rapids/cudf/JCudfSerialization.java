@@ -729,6 +729,10 @@ public class JCudfSerialization {
     return new SerializedTableHeader(numRows, types, nullCount, dataLength);
   }
 
+  private static SerializedTableHeader calcEmptyHeader(int numRows) {
+    return new SerializedTableHeader(numRows, null, null, 0);
+  }
+
   /**
    * Calculate the new header for a concatenated set of columns.
    * @param columnsForEachBatch first index is the batch, second index is the column.
@@ -1240,6 +1244,19 @@ public class JCudfSerialization {
   }
 
   /**
+   * Write all or part of a set of columns out in an internal format.
+   * @param out the stream to write the serialized table out to.
+   * @param numRows the number of rows to write out.
+   */
+  public static void writeRowsToStream(OutputStream out, long numRows) throws IOException {
+    DataWriter writer = writerFrom(out);
+    SerializedTableHeader header = calcEmptyHeader((int) numRows);
+    System.out.println("KUHU wrote =" + header.numRows);
+    header.writeTo(writer);
+    out.flush();
+  }
+
+  /**
    * Take the data from multiple batches stored in the parsed headers and the dataBuffer and write
    * it out to out as if it were a single buffer.
    * @param headers the headers parsed from multiple streams.
@@ -1405,10 +1422,14 @@ public class JCudfSerialization {
     }
 
     SerializedTableHeader header = new SerializedTableHeader(din);
+    System.out.println("KUHU readTableFrom read row count = "+ header.numRows + " numcols = " + header.numColumns + " datalen=" + header.dataLen);
     if (!header.initialized) {
       return null;
     }
-
+    if(header.dataLen == 0) {
+      System.out.println("KUHU readTableFrom inside main if");
+      return new Table(header.numRows);
+    }
     try (HostPrediction prediction = new HostPrediction(header.dataLen, "readTableFrom");
         HostMemoryBuffer hostBuffer = HostMemoryBuffer.allocate(header.dataLen)) {
       if (header.dataLen > 0) {
@@ -1416,5 +1437,25 @@ public class JCudfSerialization {
       }
       return readTableFrom(header, hostBuffer);
     }
+  }
+
+  /**
+   * Read a serialize table from the given InputStream.
+   * @param in the stream to read the table data from.
+   * @return the deserialized table in device memory, or null if the stream has no table to read
+   * from, an end of the stream at the very beginning.
+   * @throws IOException on any error.
+   * @throws EOFException if the data stream ended unexpectedly in the middle of processing.
+   */
+  public static int readRowCount(InputStream in) throws IOException {
+    DataInputStream din;
+    if (in instanceof DataInputStream) {
+      din = (DataInputStream) in;
+    } else {
+      din = new DataInputStream(in);
+    }
+    SerializedTableHeader header = new SerializedTableHeader(din);
+    System.out.println("KUHU readRowCount read row count = "+ header.numRows);
+    return header.numRows;
   }
 }
