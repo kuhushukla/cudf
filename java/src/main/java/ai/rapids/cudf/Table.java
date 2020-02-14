@@ -634,14 +634,11 @@ public final class Table implements AutoCloseable {
     for (int i = 0; i < tables.length; ++i) {
       rows += tables[i].getRowCount();
       amount += tables[i].getDeviceMemorySize();
-      if(tables[i].getNumberOfColumns() > 0)
-        tableHandles[i] = tables[i].nativeHandle;
+      tableHandles[i] = tables[i].nativeHandle;
       assert tables[i].getNumberOfColumns() == numColumns : "all tables must have the same schema";
     }
     try (DevicePrediction prediction = new DevicePrediction(amount, "concat")) {
-      if (tableHandles.length > 0)
-        return new Table(concatenate(tableHandles));
-      else return new Table(rows);
+      return new Table(concatenate(tableHandles));
     }
   }
 
