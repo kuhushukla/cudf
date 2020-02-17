@@ -1424,7 +1424,7 @@ public class JCudfSerialization {
     SerializedTableHeader header = new SerializedTableHeader(din);
     System.out.println("KUHU readTableFrom read row count = "+ header.numRows + " numcols = " + header.numColumns + " datalen=" + header.dataLen);
     if (!header.initialized) {
-      return null;
+      return new TablesAndRows(0, null);
     }
     try (HostPrediction prediction = new HostPrediction(header.dataLen, "readTableFrom");
         HostMemoryBuffer hostBuffer = HostMemoryBuffer.allocate(header.dataLen)) {
