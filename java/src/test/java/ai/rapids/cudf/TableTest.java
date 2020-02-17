@@ -1539,7 +1539,7 @@ public class TableTest extends CudfTestBase {
           JCudfSerialization.writeToStream(t, bout, i, len);
           ByteArrayInputStream bin = new ByteArrayInputStream(bout.toByteArray());
           try (TablesAndRows found = JCudfSerialization.readTableFrom(bin)) {
-            assertPartialTablesAreEqual(t, i, len, found.table``, i == 0 && len == t.getRowCount());
+            assertPartialTablesAreEqual(t, i, len, found.table, i == 0 && len == t.getRowCount());
           }
           assertNull(JCudfSerialization.readTableFrom(bin));
         }
