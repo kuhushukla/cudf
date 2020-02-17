@@ -1392,7 +1392,7 @@ public class JCudfSerialization {
     }
   }
 
-  public static Table readTableFrom(SerializedTableHeader header,
+  public static TablesAndRows readTableFrom(SerializedTableHeader header,
                                     HostMemoryBuffer hostBuffer) {
     try (DevicePrediction prediction = new DevicePrediction(hostBuffer.length, "readTableFrom");
          DeviceMemoryBuffer devBuffer = DeviceMemoryBuffer.allocate(hostBuffer.length)) {
@@ -1401,7 +1401,7 @@ public class JCudfSerialization {
           devBuffer.copyFromHostBuffer(hostBuffer);
         }
       }
-      return sliceUpColumnVectors(header, devBuffer, hostBuffer);
+      return new TablesAndRows(header.numRows, sliceUpColumnVectors(header, devBuffer, hostBuffer));
     }
   }
 
@@ -1413,7 +1413,7 @@ public class JCudfSerialization {
    * @throws IOException on any error.
    * @throws EOFException if the data stream ended unexpectedly in the middle of processing.
    */
-  public static Table readTableFrom(InputStream in) throws IOException {
+  public static TablesAndRows readTableFrom(InputStream in) throws IOException {
     DataInputStream din;
     if (in instanceof DataInputStream) {
       din = (DataInputStream) in;
@@ -1425,10 +1425,6 @@ public class JCudfSerialization {
     System.out.println("KUHU readTableFrom read row count = "+ header.numRows + " numcols = " + header.numColumns + " datalen=" + header.dataLen);
     if (!header.initialized) {
       return null;
-    }
-    if(header.dataLen == 0) {
-      System.out.println("KUHU readTableFrom inside main if");
-      return new Table(header.numRows);
     }
     try (HostPrediction prediction = new HostPrediction(header.dataLen, "readTableFrom");
         HostMemoryBuffer hostBuffer = HostMemoryBuffer.allocate(header.dataLen)) {
