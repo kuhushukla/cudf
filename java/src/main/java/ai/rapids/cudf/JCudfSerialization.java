@@ -1401,7 +1401,9 @@ public class JCudfSerialization {
           devBuffer.copyFromHostBuffer(hostBuffer);
         }
       }
+      if (header.getNumColumns() > 0)
       return new TablesAndRows(header.numRows, sliceUpColumnVectors(header, devBuffer, hostBuffer));
+      else return new TablesAndRows(header.numRows, null);
     }
   }
 
