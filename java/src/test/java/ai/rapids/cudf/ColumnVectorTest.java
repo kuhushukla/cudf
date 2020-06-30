@@ -21,7 +21,11 @@ package ai.rapids.cudf;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import javax.management.AttributeList;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -88,6 +92,33 @@ public class ColumnVectorTest extends CudfTestBase {
          ColumnVector expected = ColumnVector.fromBoxedInts(2*2-2, 3*3-3, null, 4*4-4)) {
       TableTest.assertColumnsAreEqual(expected, cv1);
       TableTest.assertColumnsAreEqual(expected, cv2);
+    }
+  }
+
+  @Test
+  void testListCv() {
+    List<Integer> list = new ArrayList<>();
+    list.add(1);
+    list.add(2);
+    list.add(3);
+    List<Integer> list2 = new ArrayList<>();
+    list2.add(4);
+    list2.add(5);
+    list2.add(6);
+//    ColumnVector columnVector = ColumnVector.build(DType.LIST, DType.INT64, 2,list.size(), (b) -> b.appendList(DType.LIST, DType.INT32, list));
+    ColumnVector res = ColumnVector.fromLists(DType.INT32, list, list2);
+//    System.out.println("KUHU cv type =" + columnVector.getType() + "rows" + columnVector.getRowCount());
+    HostColumnVector hcv = res.copyToHost();
+    System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
+    try {
+      List<Integer> ret = hcv.getList(1);
+      System.out.println("KUHU ele =" + ret.get(0));
+      System.out.println("KUHU ele =" + ret.get(1));
+      System.out.println("KUHU ele =" + ret.get(2));
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (ClassNotFoundException e) {
+      e.printStackTrace();
     }
   }
 

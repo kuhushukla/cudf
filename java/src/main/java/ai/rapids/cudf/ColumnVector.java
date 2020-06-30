@@ -24,6 +24,8 @@ import ai.rapids.cudf.WindowOptions.FrameType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -77,8 +79,8 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable {
   public ColumnVector(DType type, long rows, Optional<Long> nullCount,
       DeviceMemoryBuffer dataBuffer, DeviceMemoryBuffer validityBuffer,
       DeviceMemoryBuffer offsetBuffer) {
-    if (type != DType.STRING) {
-      assert offsetBuffer == null : "offsets are only supported for STRING";
+    if (type != DType.STRING && type!=DType.LIST) {
+      assert offsetBuffer == null : "offsets are only supported for STRING and LIST";
     }
 
     offHeap = new OffHeapState(type, (int) rows, nullCount, dataBuffer, validityBuffer, offsetBuffer);
@@ -284,8 +286,11 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable {
           hostDataBuffer = HostMemoryBuffer.allocate(data.length);
           hostDataBuffer.copyFromDeviceBuffer(data);
         }
+        ArrayList<HostMemoryBuffer> list = new ArrayList<>();
+        list.add(hostOffsetsBuffer);
+        System.out.println("KUHU CV list is empty??"  + list.isEmpty());
         HostColumnVector ret = new HostColumnVector(type, rows, nullCount,
-            hostDataBuffer, hostValidityBuffer, hostOffsetsBuffer);
+            hostDataBuffer, hostValidityBuffer, list);
         needsCleanup = false;
         return ret;
       } finally {
@@ -2357,7 +2362,7 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable {
    * using the replace template for back-references.
    * @param columnView native handle of the cudf::column_view being operated on.
    * @param pattern The regular expression patterns to search within each string.
-   * @param repl The replacement template for creating the output string.
+   * @param replace The replacement template for creating the output string.
    * @return native handle of the resulting cudf column containing the string results.
    */
   private static native long stringReplaceWithBackrefs(long columnView, String pattern,
@@ -2846,8 +2851,15 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable {
     }
   }
 
+  public static ColumnVector build(DType type, DType baseType, int rows,int listSize, Consumer<Builder> init) {
+    try (Builder builder = HostColumnVector.builder(type, baseType, rows, listSize*baseType.getSizeInBytes())) {
+      init.accept(builder);
+      return builder.buildAndPutOnDevice();
+    }
+  }
+
   public static ColumnVector build(int rows, long stringBufferSize, Consumer<Builder> init) {
-    try (Builder builder = HostColumnVector.builder(rows, stringBufferSize)) {
+    try (Builder builder = HostColumnVector.builder(DType.STRING, rows, stringBufferSize)) {
       init.accept(builder);
       return builder.buildAndPutOnDevice();
     }
@@ -2984,6 +2996,12 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable {
    */
   public static ColumnVector fromStrings(String... values) {
     try (HostColumnVector host = HostColumnVector.fromStrings(values)) {
+      return host.copyToDevice();
+    }
+  }
+
+  public static ColumnVector fromLists(DType dType, List... lists) {
+    try (HostColumnVector host = HostColumnVector.fromLists(dType, lists)) {
       return host.copyToDevice();
     }
   }

@@ -47,6 +47,7 @@
 #include <cudf/transform.hpp>
 #include <cudf/unary.hpp>
 #include <cudf/utilities/bit.hpp>
+#include <cudf/lists/lists_column_view.hpp>
 
 #include "jni_utils.hpp"
 
@@ -1061,7 +1062,19 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_makeCudfColumnView(
       cudf::column_view data_column(cudf::data_type{cudf::INT8}, j_data_size, data);
       ret.reset(new cudf::column_view(cudf::data_type{cudf::STRING}, size, nullptr, valid,
                                       j_null_count, 0, {offsets_column, data_column}));
-    } else {
+    } else     if (n_type == cudf::LIST) {
+                 JNI_NULL_CHECK(env, j_offset, "offset is null", 0);
+                 // This must be kept in sync with how string columns are created
+                 // offsets are always the first child
+                 // data is the second child
+
+                 cudf::size_type *offsets = reinterpret_cast<cudf::size_type *>(j_offset);
+                 cudf::column_view offsets_column(cudf::data_type{cudf::INT32}, size + 1, offsets);
+                 cudf::column_view data_column(cudf::data_type{cudf::INT8}, j_data_size, data);
+                 ret.reset(new cudf::column_view(cudf::data_type{cudf::LIST}, size, nullptr, valid,
+                                                 j_null_count, 0, {offsets_column, data_column}));
+               }
+                else {
       ret.reset(new cudf::column_view(n_data_type, size, data, valid, j_null_count));
     }
 
@@ -1134,6 +1147,18 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeDataPoint
         ret[0] = 0;
         ret[1] = 0;
       }
+    } else if(column->type().id() == cudf::LIST) {
+    //handle list by calling this recursively on child
+      if (column->size() > 0) {
+              cudf::lists_column_view view = cudf::lists_column_view(*column);
+//              cudf::column_view data_view = Java_ai_rapids_cudf_ColumnVector_getNativeDataPointer(env, jobject, view.child)
+              cudf::column_view data_view = view.child();
+              ret[0] = reinterpret_cast<jlong>(data_view.data<char>());
+              ret[1] = data_view.size();
+      } else {
+        ret[0] = 0;
+        ret[1] = 0;
+      }
     } else {
       ret[0] = reinterpret_cast<jlong>(column->data<char>());
       ret[1] = cudf::size_of(column->type()) * column->size();
@@ -1159,7 +1184,18 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeOffsetsPo
         ret[0] = 0;
         ret[1] = 0;
       }
-    } else {
+    } else if (column->type().id() == cudf::LIST) {
+                 if (column->size() > 0) {
+                   cudf::lists_column_view view = cudf::lists_column_view(*column);
+                   //make recursive
+                   cudf::column_view offsets_view = view.offsets();
+                   ret[0] = reinterpret_cast<jlong>(offsets_view.data<int>());
+                   ret[1] = sizeof(int) * offsets_view.size();
+                 } else {
+                   ret[0] = 0;
+                   ret[1] = 0;
+                 }
+               } else {
       ret[0] = 0;
       ret[1] = 0;
     }

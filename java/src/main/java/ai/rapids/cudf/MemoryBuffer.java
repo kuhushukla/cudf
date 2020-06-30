@@ -135,6 +135,9 @@ abstract public class MemoryBuffer implements AutoCloseable {
     assert size >= 0 : "A positive size is required";
     assert address >= this.address : "Start address is too low for " + type +
         " 0x" + Long.toHexString(address) + " < 0x" + Long.toHexString(this.address);
+//    System.out.println("KUHU checks = address + size =" + (address + size));
+//    System.out.println("KUHU checks = address + len =" + (this.address + length));
+//    System.out.println("KUHU checks = " + ((address + size) <= (this.address + length)));
     assert (address + size) <= (this.address + length) : "End address is too high for " + type +
         " 0x" + Long.toHexString(address + size) + " < 0x" + Long.toHexString(this.address + length);
   }

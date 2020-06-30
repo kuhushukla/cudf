@@ -322,6 +322,14 @@ TEST_F(ListsColumnTest, ConcatenateLists)
   }
 }
 
+TEST_F(ListsColumnTest, KuhuPrint)
+{
+  {
+    cudf::test::lists_column_wrapper<int> a{0, 1, 2, 3};
+    cudf::test::print(a, std::cout, ", ");
+  }
+}
+
 TEST_F(ListsColumnTest, ConcatenateEmptyLists)
 {
   // to disambiguiate between {} == 0 and {} == List{0}
