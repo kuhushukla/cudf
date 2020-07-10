@@ -18,14 +18,12 @@
 
 package ai.rapids.cudf;
 
-import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -36,20 +34,18 @@ import java.util.function.Consumer;
  * to release it.  Call close to decrement the reference count when you are done with the column,
  * and call incRefCount to increment the reference count.
  */
-public final class HostColumnVector implements AutoCloseable {
+public final class HostColumnVector extends BaseHostColumnVector implements AutoCloseable {
   /**
    * The size in bytes of an offset entry
    */
   static final int OFFSET_SIZE = DType.INT32.sizeInBytes;
-  private static final Logger log = LoggerFactory.getLogger(HostColumnVector.class);
 
   static {
     NativeDepsLoader.loadNativeDeps();
   }
 
-  private final OffHeapState offHeap;
-  private final DType type;
-  private long rows;
+  private final BaseHostColumnVector.OffHeapState offHeap;
+  private ListHostColumnVector lcv = null;
   private Optional<Long> nullCount = Optional.empty();
   private int refCount;
 
@@ -57,8 +53,8 @@ public final class HostColumnVector implements AutoCloseable {
    * Create a new column vector with data populated on the host.
    */
   HostColumnVector(DType type, long rows, Optional<Long> nullCount,
-                   HostMemoryBuffer hostDataBuffer, HostMemoryBuffer hostValidityBuffer) {
-    this(type, rows, nullCount, hostDataBuffer, hostValidityBuffer, null);
+                   HostMemoryBuffer hostDataBuffer, HostMemoryBuffer hostValidityBuffer, ListHostColumnVector lcv) {
+    this(type, rows, nullCount, hostDataBuffer, hostValidityBuffer, null, lcv);
   }
 
   /**
@@ -76,41 +72,23 @@ public final class HostColumnVector implements AutoCloseable {
    */
   HostColumnVector(DType type, long rows, Optional<Long> nullCount,
                    HostMemoryBuffer hostDataBuffer, HostMemoryBuffer hostValidityBuffer,
-                   ArrayList<HostMemoryBuffer> offsetBuffer) {
+                   HostMemoryBuffer offsetBuffer, ListHostColumnVector lcv) {
     if (nullCount.isPresent() && nullCount.get() > 0 && hostValidityBuffer == null) {
       throw new IllegalStateException("Buffer cannot have a nullCount without a validity buffer");
     }
     if (type != DType.STRING && type != DType.LIST) {
       assert offsetBuffer == null : "offsets are only supported for LIST";
     }
-    offHeap = new OffHeapState(hostDataBuffer, hostValidityBuffer, offsetBuffer);
+    offHeap = new BaseHostColumnVector.OffHeapState(hostDataBuffer, hostValidityBuffer, offsetBuffer);
     MemoryCleaner.register(this, offHeap);
     this.rows = rows;
     this.nullCount = nullCount;
     this.type = type;
+    this.lcv = lcv;
 
     refCount = 0;
     incRefCountInternal(true);
   }
-
-//  HostColumnVector(DType type, long rows, Optional<Long> nullCount,
-//                   HostMemoryBuffer hostDataBuffer, HostMemoryBuffer hostValidityBuffer,
-//                   ArrayList<HostMemoryBuffer> offsetBuffer) {
-//    if (nullCount.isPresent() && nullCount.get() > 0 && hostValidityBuffer == null) {
-//      throw new IllegalStateException("Buffer cannot have a nullCount without a validity buffer");
-//    }
-//    if (type != DType.STRING) {
-//      assert offsetBuffer == null : "offsets are only supported for STRING";
-//    }
-//    offHeap = new OffHeapState(hostDataBuffer, hostValidityBuffer, offsetBuffer);
-//    MemoryCleaner.register(this, offHeap);
-//    this.rows = rows;
-//    this.nullCount = nullCount;
-//    this.type = type;
-//
-//    refCount = 0;
-//    incRefCountInternal(true);
-//  }
 
   /**
    * This is a really ugly API, but it is possible that the lifecycle of a column of
@@ -233,8 +211,8 @@ public final class HostColumnVector implements AutoCloseable {
    * Copy the data to the device.
    */
   public ColumnVector copyToDevice() {
-    System.out.println("KUHU copyToDevice type=" + type + "rows=" + rows + " type.sizeInBytes="+type.sizeInBytes
-    + " this.offHeap.data.length="+ this.offHeap.data.length + "this.offHeap.offset.length"+this.offHeap.offsets.get(0).getLength());
+//    System.out.println("KUHU copyToDevice type=" + type + "rows=" + rows + " type.sizeInBytes="+type.sizeInBytes
+//    + " this.offHeap.data.length="+ this.offHeap.data.length + "this.offHeap.offset.length"+this.offHeap.offsets.getLength());
     if (rows == 0) {
       return new ColumnVector(type, 0, Optional.of(0L), null, null, null);
     }
@@ -260,7 +238,7 @@ public final class HostColumnVector implements AutoCloseable {
           dataLen = this.offHeap.data.length;
           if (dataLen == 0 && getNullCount() == 0) {
             // This is a work around to an issue where a column of all empty strings must have at
-            // least one byte or it will no t be interpreted correctly.
+            // least one byte or it will not be interpreted correctly.
             dataLen = 1;
           }
         }
@@ -275,14 +253,26 @@ public final class HostColumnVector implements AutoCloseable {
         valid.copyFromHostBuffer(hvalid, 0 , validLen);
       }
 
-      HostMemoryBuffer hoff = this.offHeap.offsets.get(0);
+      HostMemoryBuffer hoff = this.offHeap.offsets;
       if (hoff != null) {
         long offsetsLen = OFFSET_SIZE * (rows + 1);
         offsets = DeviceMemoryBuffer.allocate(offsetsLen);
         offsets.copyFromHostBuffer(hoff, 0 , offsetsLen);
       }
-
-      ColumnVector ret = new ColumnVector(type, rows, nullCount, data, valid, offsets);
+      ColumnVector ret = null;
+      if (this.type != DType.LIST) {
+        ret = new ColumnVector(type, rows, nullCount, data, valid, offsets);
+      } else {
+        DeviceMemoryBuffer tmpOffsets = DeviceMemoryBuffer.allocate(lcv.offHeap.offsets.length);
+        tmpOffsets.copyFromHostBuffer(0,lcv.offHeap.offsets, 0, lcv.offHeap.offsets.length);
+        DeviceMemoryBuffer tmpValid = null;
+        if (lcv.offHeap.valid != null) {
+          DeviceMemoryBuffer.allocate(lcv.offHeap.valid.length);
+          tmpValid.copyFromHostBuffer(0,lcv.offHeap.valid, 0, lcv.offHeap.valid.length);
+        }
+        ListColumnVector listColumnVector = new ListColumnVector(lcv.type, (int)lcv.rows, null, tmpValid, tmpOffsets);
+        ret = new ColumnVector(type, rows, nullCount, data, valid, offsets, listColumnVector);
+      }
       data = null;
       valid = null;
       offsets = null;
@@ -355,7 +345,7 @@ public final class HostColumnVector implements AutoCloseable {
         srcBuffer = offHeap.valid;
         break;
       case OFFSET:
-        srcBuffer = offHeap.offsets.get(0);
+        srcBuffer = offHeap.offsets;
         break;
       case DATA:
         srcBuffer = offHeap.data;
@@ -423,7 +413,7 @@ public final class HostColumnVector implements AutoCloseable {
   long getStartStringOffset(long index) {
     assert type == DType.STRING;
     assert (index >= 0 && index < rows) : "index is out of range 0 <= " + index + " < " + rows;
-    return offHeap.offsets.get(0).getInt(index * 4);
+    return offHeap.offsets.getInt(index * 4);
   }
 
   /**
@@ -433,7 +423,7 @@ public final class HostColumnVector implements AutoCloseable {
     assert type == DType.STRING;
     assert (index >= 0 && index < rows) : "index is out of range 0 <= " + index + " < " + rows;
     // The offsets has one more entry than there are rows.
-    return offHeap.offsets.get(0).getInt((index + 1) * 4);
+    return offHeap.offsets.getInt((index + 1) * 4);
   }
 
   /**
@@ -480,8 +470,8 @@ public final class HostColumnVector implements AutoCloseable {
   public byte[] getUTF8(long index) {
     assert type == DType.STRING;
     assertsForGet(index);
-    int start = offHeap.offsets.get(0).getInt(index * OFFSET_SIZE);
-    int size = offHeap.offsets.get(0).getInt((index + 1) * OFFSET_SIZE) - start;
+    int start = offHeap.offsets.getInt(index * OFFSET_SIZE);
+    int size = offHeap.offsets.getInt((index + 1) * OFFSET_SIZE) - start;
     byte[] rawData = new byte[size];
     if (size > 0) {
       offHeap.data.getBytes(rawData, 0, start, size);
@@ -491,9 +481,8 @@ public final class HostColumnVector implements AutoCloseable {
 
   public List getList(long index) throws IOException, ClassNotFoundException {
     System.out.println("KUHU type = " + type);
-    System.out.println("KUHU offsets length = " + offHeap.offsets.size());
     //assert type == DType.LIST;
-    HostMemoryBuffer offsets = offHeap.offsets.get(0);
+    HostMemoryBuffer offsets = lcv.offHeap.offsets;
     HostMemoryBuffer data = offHeap.data;
     int dataLen = (int)data.length;
     System.out.println("KUHU data = " + data.getLength());
@@ -505,9 +494,11 @@ public final class HostColumnVector implements AutoCloseable {
 
     long dataStart = data.address + start;
     int end = offsets.getInt((index+1)*DType.INT32.getSizeInBytes());
-    byte[] offsetBytes = new byte[12];
-    offsets.getBytes(offsetBytes, 0, 0, 12);
+    byte[] offsetBytes = new byte[(int)offsets.length];
+    offsets.getBytes(offsetBytes, 0, 0, offsets.length);
     System.out.println("KUHU offsetBytes========"+offsetBytes.length);
+    System.out.println("KUHU ListColumnVector offsets =" + this.lcv.offHeap.offsets.address + " len =" +
+        this.lcv.offHeap.offsets.length);
     for (int i =0; i< offsetBytes.length;i++) {
       System.out.print((offsetBytes[i]) + " ");
     }
@@ -544,87 +535,6 @@ public final class HostColumnVector implements AutoCloseable {
   /////////////////////////////////////////////////////////////////////////////
   // HELPER CLASSES
   /////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Holds the off heap state of the column vector so we can clean it up, even if it is leaked.
-   */
-  protected static final class OffHeapState extends MemoryCleaner.Cleaner {
-    public HostMemoryBuffer data;
-    public HostMemoryBuffer valid;
-    public ArrayList<HostMemoryBuffer> offsets = new ArrayList<>();
-
-    OffHeapState(HostMemoryBuffer data, HostMemoryBuffer valid, ArrayList<HostMemoryBuffer> offsets) {
-      this.data = data;
-      this.valid = valid;
-      this.offsets = offsets;
-    }
-
-    @Override
-    protected boolean cleanImpl(boolean logErrorIfNotClean) {
-      boolean neededCleanup = false;
-      if (data != null || valid != null || offsets != null) {
-        try {
-          ColumnVector.closeBuffers(data, valid, offsets.get(0));
-        } finally {
-          // Always mark the resource as freed even if an exception is thrown.
-          // We cannot know how far it progressed before the exception, and
-          // therefore it is unsafe to retry.
-          data = null;
-          valid = null;
-          offsets = null;
-        }
-        neededCleanup = true;
-      }
-      if (neededCleanup && logErrorIfNotClean) {
-        log.error("A HOST COLUMN VECTOR WAS LEAKED (ID: " + id + ")");
-        logRefCountDebug("Leaked vector");
-      }
-      return neededCleanup;
-    }
-
-    @Override
-    public void noWarnLeakExpected() {
-      super.noWarnLeakExpected();
-      if (data != null) {
-        data.noWarnLeakExpected();
-      }
-      if (valid != null) {
-        valid.noWarnLeakExpected();
-      }
-      if (offsets != null) {
-        for(MemoryBuffer offsetBuffer: offsets)
-        offsetBuffer.noWarnLeakExpected();
-      }
-    }
-
-    @Override
-    public boolean isClean() {
-      return data == null && valid == null && offsets == null;
-    }
-
-    /**
-     * This returns total memory allocated on the host for the ColumnVector.
-     */
-    public long getHostMemorySize() {
-      long total = 0;
-      if (valid != null) {
-        total += valid.length;
-      }
-      if (data != null) {
-        total += data.length;
-      }
-      if (offsets != null) {
-        for(MemoryBuffer offsetBuffer: offsets)
-          total += offsetBuffer.length;
-      }
-      return total;
-    }
-
-    @Override
-    public String toString() {
-      return "(ID: " + id + ")";
-    }
-  }
 
   /////////////////////////////////////////////////////////////////////////////
   // BUILDER
@@ -1023,7 +933,7 @@ public final class HostColumnVector implements AutoCloseable {
     private final DType type;
     private HostMemoryBuffer data;
     private HostMemoryBuffer valid;
-    private ArrayList<HostMemoryBuffer> offsets = new ArrayList<>();
+    private HostMemoryBuffer offsets;
     private long currentIndex = 0;
     private long nullCount;
     private int currentStringByteIndex = 0;
@@ -1047,9 +957,9 @@ public final class HostColumnVector implements AutoCloseable {
         }
         this.data = HostMemoryBuffer.allocate(stringBufferSize);
         // The offsets are ints and there is 1 more than the number of rows.
-        this.offsets.add(0, HostMemoryBuffer.allocate((rows + 1) * OFFSET_SIZE));
+        this.offsets = HostMemoryBuffer.allocate((rows + 1) * OFFSET_SIZE);
         // The first offset is always 0
-        this.offsets.get(0).setInt(0, 0);
+        this.offsets.setInt(0, 0);
       } else {
         this.data = HostMemoryBuffer.allocate(rows * type.sizeInBytes);
       }
@@ -1066,9 +976,9 @@ public final class HostColumnVector implements AutoCloseable {
         }
         this.data = HostMemoryBuffer.allocate(stringBufferSize);
         // The offsets are ints and there is 1 more than the number of rows.
-        this.offsets.add(0, HostMemoryBuffer.allocate((rows + 1) * OFFSET_SIZE));
+        this.offsets = HostMemoryBuffer.allocate((rows + 1) * OFFSET_SIZE);
         // The first offset is always 0
-        this.offsets.get(0).setInt(0, 0);
+        this.offsets.setInt(0, 0);
       } else {
         this.data = HostMemoryBuffer.allocate(rows * baseType.sizeInBytes);
       }
@@ -1201,7 +1111,7 @@ public final class HostColumnVector implements AutoCloseable {
       }
       currentStringByteIndex += length;
       currentIndex++;
-      offsets.get(0).setInt(currentIndex * OFFSET_SIZE, currentStringByteIndex);
+      offsets.setInt(currentIndex * OFFSET_SIZE, currentStringByteIndex);
       return this;
     }
 
@@ -1266,17 +1176,17 @@ public final class HostColumnVector implements AutoCloseable {
       //print again
       currentStringByteIndex += length;
       currentIndex++;
-      if (offsets.size() == 0) {
-        this.offsets.add(0, HostMemoryBuffer.allocate((rows + 1) * OFFSET_SIZE));
+      if (offsets == null) {
+        this.offsets = HostMemoryBuffer.allocate((rows + 1) * OFFSET_SIZE);
       }
-      offsets.get(0).setInt(0, 0);
+      offsets.setInt(0, 0);
       System.out.println("KUHU currentIndex="+currentIndex);
       System.out.println("KUHU offset size="+OFFSET_SIZE);
       System.out.println("KUHU currentStringByteIndex="+currentStringByteIndex);
-      offsets.get(0).setInt(currentIndex * OFFSET_SIZE, currentStringByteIndex);
+      offsets.setInt(currentIndex * OFFSET_SIZE, currentStringByteIndex);
       //debug
-      byte[] offsetBytes = new byte[12];
-      offsets.get(0).getBytes(offsetBytes, 0, 0, 12);
+      byte[] offsetBytes = new byte[listBytes.length];
+      offsets.getBytes(offsetBytes, 0, 0, listBytes.length);
       System.out.println("Setting KUHU offsetBytes========"+offsetBytes.length);
       for (int i =0; i< offsetBytes.length;i++) {
         System.out.print((offsetBytes[i]) + " ");
@@ -1518,7 +1428,7 @@ public final class HostColumnVector implements AutoCloseable {
       setNullAt(currentIndex);
       currentIndex++;
       if (type == DType.STRING) {
-        offsets.get(0).setInt(currentIndex * OFFSET_SIZE, currentStringByteIndex);
+        offsets.setInt(currentIndex * OFFSET_SIZE, currentStringByteIndex);
       }
       return this;
     }
@@ -1545,10 +1455,27 @@ public final class HostColumnVector implements AutoCloseable {
       if (built) {
         throw new IllegalStateException("Cannot reuse a builder.");
       }
-      HostColumnVector cv = new HostColumnVector(type,
-          currentIndex, Optional.of(nullCount), data, valid, offsets);
-      built = true;
-      return cv;
+      if (type == DType.LIST) {
+        ListHostColumnVector lcv = buildListMetadata(DType.INT32, offsets, valid);
+        HostColumnVector cv = new HostColumnVector(type,
+            currentIndex, Optional.of(nullCount), data, valid, offsets, lcv);
+        built = true;
+        return cv;
+      } else {
+        HostColumnVector cv = new HostColumnVector(type,
+            currentIndex, Optional.of(nullCount), data, valid, offsets, null);
+        built = true;
+        return cv;
+      }
+    }
+
+    /**
+     * Build list metadata
+     */
+    public final ListHostColumnVector buildListMetadata(DType type, HostMemoryBuffer offsets,
+                                                        HostMemoryBuffer validity) {
+      ListHostColumnVector lcv = new ListHostColumnVector(type, null, validity, offsets);
+      return lcv;
     }
 
     /**
@@ -1575,7 +1502,7 @@ public final class HostColumnVector implements AutoCloseable {
         }
         if (offsets != null) {
           // close all
-          offsets.get(0).close();
+          offsets.close();
           offsets = null;
         }
         built = true;

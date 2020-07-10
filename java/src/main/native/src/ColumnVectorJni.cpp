@@ -1034,7 +1034,7 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_normalizeNANsAndZeros(J
 // should typically only be called from the CudfColumn inner class.
 ////////
 
-JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_makeCudfColumnView(
+JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_BaseColumnVector_makeCudfColumnView(
     JNIEnv *env, jobject j_object, jint j_type, jlong j_data, jlong j_data_size, jlong j_offset,
     jlong j_valid, jint j_null_count, jint size) {
 
@@ -1083,7 +1083,29 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_makeCudfColumnView(
   CATCH_STD(env, 0);
 }
 
-JNIEXPORT jint JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeTypeId(JNIEnv *env,
+JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_BaseColumnVector_getChildColumnView(JNIEnv *env,
+    jobject j_object, jlong handle) {
+    cudf::jni::auto_set_device(env);
+//    std::unique_ptr<cudf::column_view> ret;
+    std::unique_ptr<cudf::column_view> ret(new cudf::column_view());
+    cudf::column_view *column = reinterpret_cast<cudf::column_view *>(handle);
+    if(column->type().id() == cudf::LIST) {
+    //handle list by calling this recursively on child
+      if (column->size() > 0) {
+              cudf::lists_column_view view = cudf::lists_column_view(*column);
+              cudf::column_view data_view = view.child();
+              *ret.get() = data_view;
+              return reinterpret_cast<jlong>(ret.release());
+      }
+    }
+//     else {
+//      return -1l;
+//    }
+    return reinterpret_cast<jlong>(ret.release());
+}
+
+
+JNIEXPORT jint JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeTypeId(JNIEnv *env,
                                                                         jobject j_object,
                                                                         jlong handle) {
   JNI_NULL_CHECK(env, handle, "native handle is null", 0);
@@ -1095,7 +1117,7 @@ JNIEXPORT jint JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeTypeId(JNIEnv *
   CATCH_STD(env, 0);
 }
 
-JNIEXPORT jint JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeRowCount(JNIEnv *env,
+JNIEXPORT jint JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeRowCount(JNIEnv *env,
                                                                           jobject j_object,
                                                                           jlong handle) {
   JNI_NULL_CHECK(env, handle, "native handle is null", 0);
@@ -1107,7 +1129,7 @@ JNIEXPORT jint JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeRowCount(JNIEnv
   CATCH_STD(env, 0);
 }
 
-JNIEXPORT jint JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeNullCount(JNIEnv *env,
+JNIEXPORT jint JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeNullCount(JNIEnv *env,
                                                                            jobject j_object,
                                                                            jlong handle) {
   JNI_NULL_CHECK(env, handle, "native handle is null", 0);
@@ -1119,7 +1141,7 @@ JNIEXPORT jint JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeNullCount(JNIEn
   CATCH_STD(env, 0);
 }
 
-JNIEXPORT void JNICALL Java_ai_rapids_cudf_ColumnVector_deleteColumnView(JNIEnv *env,
+JNIEXPORT void JNICALL Java_ai_rapids_cudf_BaseColumnVector_deleteColumnView(JNIEnv *env,
                                                                          jobject j_object,
                                                                          jlong handle) {
   try {
@@ -1130,7 +1152,7 @@ JNIEXPORT void JNICALL Java_ai_rapids_cudf_ColumnVector_deleteColumnView(JNIEnv 
   CATCH_STD(env, );
 }
 
-JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeDataPointer(JNIEnv *env,
+JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeDataPointer(JNIEnv *env,
                                                                                    jobject j_object,
                                                                                    jlong handle) {
   try {
@@ -1168,7 +1190,7 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeDataPoint
   CATCH_STD(env, 0);
 }
 
-JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeOffsetsPointer(
+JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeOffsetsPointer(
     JNIEnv *env, jobject j_object, jlong handle) {
   try {
     cudf::jni::auto_set_device(env);
@@ -1204,7 +1226,7 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeOffsetsPo
   CATCH_STD(env, 0);
 }
 
-JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeValidPointer(
+JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeValidPointer(
     JNIEnv *env, jobject j_object, jlong handle) {
   try {
     cudf::jni::auto_set_device(env);
@@ -1237,7 +1259,7 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeValidPointerSi
 // only be called from the CudfColumn child class.
 ////////
 
-JNIEXPORT void JNICALL Java_ai_rapids_cudf_ColumnVector_deleteCudfColumn(JNIEnv *env,
+JNIEXPORT void JNICALL Java_ai_rapids_cudf_BaseColumnVector_deleteCudfColumn(JNIEnv *env,
                                                                          jobject j_object,
                                                                          jlong handle) {
   JNI_NULL_CHECK(env, handle, "column handle is null", );
@@ -1248,7 +1270,7 @@ JNIEXPORT void JNICALL Java_ai_rapids_cudf_ColumnVector_deleteCudfColumn(JNIEnv 
   CATCH_STD(env, )
 }
 
-JNIEXPORT void JNICALL Java_ai_rapids_cudf_ColumnVector_setNativeNullCountColumn(JNIEnv *env,
+JNIEXPORT void JNICALL Java_ai_rapids_cudf_BaseColumnVector_setNativeNullCountColumn(JNIEnv *env,
                                                                                  jobject j_object,
                                                                                  jlong handle,
                                                                                  jint null_count) {
@@ -1261,7 +1283,7 @@ JNIEXPORT void JNICALL Java_ai_rapids_cudf_ColumnVector_setNativeNullCountColumn
   CATCH_STD(env, );
 }
 
-JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeColumnView(JNIEnv *env,
+JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeColumnView(JNIEnv *env,
                                                                              jobject j_object,
                                                                              jlong handle) {
   try {
@@ -1274,7 +1296,7 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_getNativeColumnView(JNI
   CATCH_STD(env, 0);
 }
 
-JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_makeEmptyCudfColumn(JNIEnv *env,
+JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_BaseColumnVector_makeEmptyCudfColumn(JNIEnv *env,
                                                                              jobject j_object,
                                                                              jint j_type) {
 

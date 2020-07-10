@@ -325,8 +325,8 @@ TEST_F(ListsColumnTest, ConcatenateLists)
 TEST_F(ListsColumnTest, KuhuPrint)
 {
   {
-    cudf::test::lists_column_wrapper<int> a{0, 1, 2, 3};
-    cudf::test::print(a, std::cout, ", ");
+   cudf::test::lists_column_wrapper<int> a{{{0, 1}, {20}}, {{4, 10}}};
+   cudf::test::print(a, std::cout, ", ");
   }
 }
 
@@ -408,6 +408,7 @@ TEST_F(ListsColumnTest, ConcatenateNestedLists)
 {
   {
     cudf::test::lists_column_wrapper<int> a{{{0, 1}, {2}}, {{4, 5, 6, 7, 8, 9, 10}}};
+    cudf::test::print(a, std::cout, ", ");
     cudf::test::lists_column_wrapper<int> b{{{6, 7}}, {{8, 9, 10}, {11, 12}}};
     cudf::test::lists_column_wrapper<int> expected{
       {{0, 1}, {2}}, {{4, 5, 6, 7, 8, 9, 10}}, {{6, 7}}, {{8, 9, 10}, {11, 12}}};
