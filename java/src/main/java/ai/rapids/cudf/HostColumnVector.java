@@ -51,8 +51,6 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
   protected BaseHostColumnVector getChild() {
     return lcv;
   }
-
-  private final BaseHostColumnVector.OffHeapState offHeap;
   private ListHostColumnVector lcv = null;
   private Optional<Long> nullCount = Optional.empty();
   private int refCount;
@@ -317,11 +315,12 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
     }
 
     if (lhcv.childLcv == null) {
-      return new ListColumnVector(lhcv.type, (int)lhcv.rows, null, tmpValid, tmpOffsets);
+      DeviceMemoryBuffer data = DeviceMemoryBuffer.allocate(this.offHeap.data.length);
+      data.copyFromHostBuffer(this.offHeap.data, 0, this.offHeap.data.length);
+      return new ListColumnVector(lhcv.type, (int)lhcv.rows, data, tmpValid, tmpOffsets, null);
     }
-    ListColumnVector listColumnVector = new ListColumnVector(lhcv.type, (int)lhcv.rows, null, tmpValid, tmpOffsets);
-    listColumnVector.childLcv = makeLcv(lhcv.childLcv);
-    listColumnVector.offHeap.setLcv(listColumnVector.childLcv);
+    ListColumnVector listColumnVector = new ListColumnVector(lhcv.type, (int)lhcv.rows, null, tmpValid, tmpOffsets, makeLcv(lhcv.childLcv));
+
     return listColumnVector;
   }
   /////////////////////////////////////////////////////////////////////////////
@@ -514,18 +513,18 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
   }
 
   public List getListParent(long rowIndex) throws Exception {
-    return getListMain(rowIndex, this.lcv);
+    return getListMain(rowIndex, this);
   }
 
-  public List getListMain(long rowIndex, BaseColumnVector mainCv) throws Exception {
-    System.out.println("KUHU child.type="+mainCv + " mainCv.childLcv" +mainCv.childLcv);
+  public List getListMain(long rowIndex, BaseHostColumnVector mainCv) throws Exception {
+    System.out.println("KUHU child.type="+mainCv + " mainCv.childLcv" +mainCv.getChild());
 
-    if (mainCv.childLcv != null) {
+    if (mainCv.getChild().type == DType.LIST) {
       List retList = new ArrayList();
       int start = mainCv.offHeap.offsets.getInt(rowIndex*DType.INT32.getSizeInBytes());
       int end = mainCv.offHeap.offsets.getInt((rowIndex+1)*DType.INT32.getSizeInBytes());
       for(int i =start;i<end;i++) {
-        retList.add(getListMain(i, mainCv.childLcv));
+        retList.add(getListMain(i, mainCv.getChild()));
       }
       return retList;
     } else {
@@ -536,10 +535,10 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
       System.out.println("KUHU getlist DATA ==========");
       this.offHeap.data.getBytes(tmpD,0,0,tmpD.length);
 
-      int size = (end-start)*this.lcv.type.getSizeInBytes();
+      int size = (end-start)*mainCv.getChild().type.getSizeInBytes();
       byte[] rawData = new byte[size];
       if (size > 0) {
-        offHeap.data.getBytes(rawData, 0, start*this.lcv.type.getSizeInBytes(), size);
+        offHeap.data.getBytes(rawData, 0, start*mainCv.getChild().type.getSizeInBytes(), size);
       }
 
       System.out.println("KUHU rawdata========"+rawData.length);
@@ -1706,9 +1705,9 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
 
     ListHostColumnVector makeLhcv(int level) {
       if (level >= offsets.size()) {
-        return new ListHostColumnVector(this.baseType, null,this.valid,null);
+        return new ListHostColumnVector(this.baseType,(int)this.rows, null,this.valid,null);
       }
-      ListHostColumnVector listHostColumnVector = new ListHostColumnVector(this.type, null,this.valid,this.offsets.get(level));
+      ListHostColumnVector listHostColumnVector = new ListHostColumnVector(this.type, (int)this.rows, null,this.valid,this.offsets.get(level));
       listHostColumnVector.childLcv = makeLhcv(level+1);
       return listHostColumnVector;
     }
@@ -1717,7 +1716,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
      */
     public final ListHostColumnVector buildListMetadata(DType type, HostMemoryBuffer offsets,
                                                         HostMemoryBuffer validity) {
-      ListHostColumnVector lcv = new ListHostColumnVector(type, null, validity, offsets);
+      ListHostColumnVector lcv = new ListHostColumnVector(type,(int)this.rows, null, validity, offsets);
       return lcv;
     }
 

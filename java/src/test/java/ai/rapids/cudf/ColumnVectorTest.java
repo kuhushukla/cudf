@@ -141,8 +141,7 @@ public class ColumnVectorTest extends CudfTestBase {
     mainList.add(list2);
 //    ColumnVector columnVector = ColumnVector.build(DType.LIST, DType.INT64, 2,list.size(), (b) -> b.appendList(DType.LIST, DType.INT32, list));
     ColumnVector res = ColumnVector.fromLists(DType.INT32, mainList);
-//    res = new ColumnVector(res.getNativeView());
-//    System.out.println("KUHU cv type =" + columnVector.getType() + "rows" + columnVector.getRowCount());
+    res = new ColumnVector(res.getNativeView());
     HostColumnVector hcv = res.copyToHost();
     System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
     try {

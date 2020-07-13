@@ -60,7 +60,11 @@ public abstract class BaseColumnVector {
         long cdSize = data == null ? 0 : data.length;
         long od = offsets == null ? 0 : offsets.address;
         long vd = valid == null ? 0 : valid.address;
-        this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows, lcv.offHeap.getViewHandle());
+        if (type == DType.LIST) {
+          this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows, lcv.offHeap.getViewHandle());
+        } else {
+          this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows, 0l);
+        }
       }
     }
 

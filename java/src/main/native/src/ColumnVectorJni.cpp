@@ -1064,15 +1064,12 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_BaseColumnVector_makeCudfColumnView(
                                       j_null_count, 0, {offsets_column, data_column}));
     } else     if (n_type == cudf::LIST) {
                  JNI_NULL_CHECK(env, j_offset, "offset is null", 0);
-                 // This must be kept in sync with how string columns are created
-                 // offsets are always the first child
-                 // data is the second child
-
+                 cudf::column_view *child_view = reinterpret_cast<cudf::column_view *>(j_child);
                  cudf::size_type *offsets = reinterpret_cast<cudf::size_type *>(j_offset);
                  cudf::column_view offsets_column(cudf::data_type{cudf::INT32}, size + 1, offsets);
-                 cudf::column_view data_column(cudf::data_type{cudf::INT8}, j_data_size, data);
+                 std::cout<<"KUHU child_view=" << child_view;
                  ret.reset(new cudf::column_view(cudf::data_type{cudf::LIST}, size, nullptr, valid,
-                                                 j_null_count, 0, {offsets_column, data_column}));
+                                                 j_null_count, 0, {offsets_column, *child_view}));
                }
                 else {
       ret.reset(new cudf::column_view(n_data_type, size, data, valid, j_null_count));

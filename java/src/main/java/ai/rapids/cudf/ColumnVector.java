@@ -288,11 +288,11 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
       HostMemoryBuffer tmpHostValidityBuffer = null;
       HostMemoryBuffer tmpHostOffsetsBuffer = null;
 
-      if (listColumnVector.offHeap != null) {
-        tmpData = listColumnVector.offHeap.getData();
-        tmpValid = listColumnVector.offHeap.getValid();
-        tmpOffset = listColumnVector.offHeap.getOffsets();
-      }
+//      if (listColumnVector.offHeap != null) {
+//        tmpData = listColumnVector.offHeap.getData();
+//        tmpValid = listColumnVector.offHeap.getValid();
+//        tmpOffset = listColumnVector.offHeap.getOffsets();
+//      }
       boolean needsCleanup = true;
       try {
         // We don't have a good way to tell if it is cached on the device or recalculate it on
@@ -310,6 +310,12 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
         if (offsets != null) {
           hostOffsetsBuffer = HostMemoryBuffer.allocate(offsets.length);
           hostOffsetsBuffer.copyFromDeviceBuffer(offsets);
+          byte[] tmp = new byte[(int)hostOffsetsBuffer.length];
+          hostOffsetsBuffer.getBytes(tmp, 0,0, tmp.length);
+          System.out.println("Setting KUHU OFFSETS COPY TO HOST========" + tmp.length);
+          for (int i = 0; i < tmp.length; i++) {
+            System.out.print((tmp[i]) + " ");
+          }
           if (tmpOffset != null) {
             tmpHostOffsetsBuffer = HostMemoryBuffer.allocate(tmpOffset.getLength());
             tmpHostOffsetsBuffer.copyFromDeviceBuffer(tmpOffset);
@@ -359,9 +365,9 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     }
 
     if (lcv.childLcv == null) {
-      return new ListHostColumnVector(lcv.type, null, tmpValid, tmpHostOffsetsBuffer);
+      return new ListHostColumnVector(lcv.type, (int)lcv.rows, null, tmpValid, tmpHostOffsetsBuffer);
     }
-    ListHostColumnVector listColumnVector = new ListHostColumnVector(lcv.type, null, tmpValid, tmpHostOffsetsBuffer);
+    ListHostColumnVector listColumnVector = new ListHostColumnVector(lcv.type, (int)lcv.rows, null, tmpValid, tmpHostOffsetsBuffer);
     listColumnVector.childLcv = lcvToLhcv(lcv.childLcv);
     return listColumnVector;
   }

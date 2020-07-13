@@ -2,10 +2,10 @@ package ai.rapids.cudf;
 
 public class ListHostColumnVector extends BaseHostColumnVector {
   ListHostColumnVector childLcv = null;
-  BaseHostColumnVector.OffHeapState offHeap = null;
 
-  public ListHostColumnVector(DType type, HostMemoryBuffer data, HostMemoryBuffer valid, HostMemoryBuffer offsets) {
+  public ListHostColumnVector(DType type, int rows, HostMemoryBuffer data, HostMemoryBuffer valid, HostMemoryBuffer offsets) {
     this.type = type;
+    this.rows = rows;
     System.out.println("KUHU ListHostColumnVector type =" + this.type);
     if (this.type != DType.EMPTY) {
       this.offHeap = new BaseHostColumnVector.OffHeapState(data, valid, offsets);

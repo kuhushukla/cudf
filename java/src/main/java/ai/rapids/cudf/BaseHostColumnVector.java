@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 public abstract class BaseHostColumnVector {
   private static final Logger log = LoggerFactory.getLogger(HostColumnVector.class);
+  protected BaseHostColumnVector.OffHeapState offHeap;
   /**
    * Holds the off heap state of the column vector so we can clean it up, even if it is leaked.
    */
