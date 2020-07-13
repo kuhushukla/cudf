@@ -2755,8 +2755,8 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     }
   }
 
-  public static ColumnVector fromLists(DType dType, List... lists) {
-    try (HostColumnVector host = HostColumnVector.fromLists(dType, lists)) {
+  public static<T> ColumnVector fromLists(DType dType, List<T>... lists) {
+    try (HostColumnVector host = HostColumnVector.fromLists(dType, 1, lists)) {
       return host.copyToDevice();
     }
   }

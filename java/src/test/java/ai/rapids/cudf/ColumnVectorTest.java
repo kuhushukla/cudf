@@ -96,7 +96,37 @@ public class ColumnVectorTest extends CudfTestBase {
   }
 
   @Test
-  void testListCv() {
+  void testListCv() throws Exception {
+    List<Integer> list = new ArrayList<>();
+    list.add(0);
+    list.add(1);
+    list.add(2);
+    list.add(3);
+    List<Integer> list2 = new ArrayList<>();
+    list2.add(6);
+    list2.add(2);
+    list2.add(4);
+    list2.add(5);
+    List<Integer> list3 = new ArrayList<>();
+    list3.add(0);
+    list3.add(7);
+    list3.add(3);
+    list3.add(4);
+    list3.add(2);
+//    ColumnVector columnVector = ColumnVector.build(DType.LIST, DType.INT64, 2,list.size(), (b) -> b.appendList(DType.LIST, DType.INT32, list));
+    ColumnVector res = ColumnVector.fromLists(DType.INT32, list, list2, list3);
+//    System.out.println("KUHU cv type =" + columnVector.getType() + "rows" + columnVector.getRowCount());
+    HostColumnVector hcv = res.copyToHost();
+    System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
+    List<Integer> ret = hcv.getListParent(1);
+    System.out.println("KUHU ele =" + ret.get(0));
+    System.out.println("KUHU ele =" + ret.get(1));
+    System.out.println("KUHU ele =" + ret.get(2));
+
+  }
+
+  @Test
+  void testListOfListsCv() {
     List<Integer> list = new ArrayList<>();
     list.add(1);
     list.add(2);
@@ -105,19 +135,20 @@ public class ColumnVectorTest extends CudfTestBase {
     list2.add(4);
     list2.add(5);
     list2.add(6);
+    List<List<Integer>> mainList = new ArrayList<>();
+    mainList.add(list);
+    mainList.add(list2);
 //    ColumnVector columnVector = ColumnVector.build(DType.LIST, DType.INT64, 2,list.size(), (b) -> b.appendList(DType.LIST, DType.INT32, list));
-    ColumnVector res = ColumnVector.fromLists(DType.INT32, list, list2);
+    ColumnVector res = ColumnVector.fromLists(DType.INT32, mainList);
 //    System.out.println("KUHU cv type =" + columnVector.getType() + "rows" + columnVector.getRowCount());
     HostColumnVector hcv = res.copyToHost();
     System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
     try {
-      List<Integer> ret = hcv.getList(1);
+      List<Integer> ret = hcv.getListParent(0);
       System.out.println("KUHU ele =" + ret.get(0));
       System.out.println("KUHU ele =" + ret.get(1));
       System.out.println("KUHU ele =" + ret.get(2));
-    } catch (IOException e) {
-      e.printStackTrace();
-    } catch (ClassNotFoundException e) {
+    } catch (Exception e) {
       e.printStackTrace();
     }
   }
