@@ -51,7 +51,7 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     MemoryCleaner.register(this, offHeap);
     this.type = offHeap.getNativeType();
     this.rows = offHeap.getNativeRowCount();
-
+    offHeap.getChildrenPointers();
     this.refCount = 0;
     incRefCountInternal(true);
   }
@@ -77,12 +77,12 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
       assert offsetBuffer == null : "offsets are only supported for STRING and LIST";
     }
 
-    offHeap = new BaseColumnVector.OffHeapState(type, (int) rows, nullCount, dataBuffer, validityBuffer, offsetBuffer);
+    offHeap = new BaseColumnVector.OffHeapState(type, (int) rows, nullCount, dataBuffer, validityBuffer, offsetBuffer, null);
     MemoryCleaner.register(this, offHeap);
     this.rows = rows;
     this.nullCount = nullCount;
     this.type = type;
-    listColumnVector = new ListColumnVector(offHeap.getViewHandle());
+    listColumnVector = null;
 
     this.refCount = 0;
     incRefCountInternal(true);
@@ -95,12 +95,13 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
       assert offsetBuffer == null : "offsets are only supported for STRING and LIST";
     }
 
-    offHeap = new BaseColumnVector.OffHeapState(type, (int) rows, nullCount, dataBuffer, validityBuffer, offsetBuffer);
+    listColumnVector = lcv;
+    offHeap = new BaseColumnVector.OffHeapState(type, (int) rows, nullCount, dataBuffer, validityBuffer, offsetBuffer,
+        lcv);
     MemoryCleaner.register(this, offHeap);
     this.rows = rows;
     this.nullCount = nullCount;
     this.type = type;
-    listColumnVector = lcv;
 
     this.refCount = 0;
     incRefCountInternal(true);
@@ -323,8 +324,7 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
             tmpHostDataBuffer.copyFromDeviceBuffer(tmpData);
           }
         }
-        ListHostColumnVector lis = new ListHostColumnVector(listColumnVector.type,
-            tmpHostDataBuffer, tmpHostValidityBuffer, tmpHostOffsetsBuffer);
+        ListHostColumnVector lis = lcvToLhcv(this.listColumnVector);
         HostColumnVector ret = new HostColumnVector(type, rows, nullCount,
             hostDataBuffer, hostValidityBuffer, hostOffsetsBuffer, lis);
         needsCleanup = false;
@@ -345,6 +345,26 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     }
   }
 
+  ListHostColumnVector lcvToLhcv(ListColumnVector lcv) {
+    HostMemoryBuffer tmpHostOffsetsBuffer = null;
+    HostMemoryBuffer tmpValid = null;
+
+    if (lcv.offHeap.getValid() != null) {
+      tmpValid=HostMemoryBuffer.allocate(lcv.offHeap.getValid().length);
+      tmpValid.copyFromDeviceBuffer(lcv.offHeap.getValid());
+    }
+    if (lcv.offHeap.getOffsets() != null) {
+      tmpHostOffsetsBuffer=HostMemoryBuffer.allocate(lcv.offHeap.getOffsets().getLength());
+      tmpHostOffsetsBuffer.copyFromDeviceBuffer(lcv.offHeap.getOffsets());
+    }
+
+    if (lcv.childLcv == null) {
+      return new ListHostColumnVector(lcv.type, null, tmpValid, tmpHostOffsetsBuffer);
+    }
+    ListHostColumnVector listColumnVector = new ListHostColumnVector(lcv.type, null, tmpValid, tmpHostOffsetsBuffer);
+    listColumnVector.childLcv = lcvToLhcv(lcv.childLcv);
+    return listColumnVector;
+  }
   /////////////////////////////////////////////////////////////////////////////
   // RAW DATA ACCESS
   /////////////////////////////////////////////////////////////////////////////
@@ -2917,4 +2937,8 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     return build(DType.TIMESTAMP_NANOSECONDS, values.length, (b) -> b.appendBoxed(values));
   }
 
+  @Override
+  protected BaseColumnVector getChild() {
+    return listColumnVector;
+  }
 }

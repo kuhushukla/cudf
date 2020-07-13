@@ -3,6 +3,7 @@ package ai.rapids.cudf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Optional;
 
 public abstract class BaseColumnVector {
@@ -10,6 +11,7 @@ public abstract class BaseColumnVector {
   private static final Logger log = LoggerFactory.getLogger(ColumnVector.class);
   protected DType type;
   protected long rows;
+  protected abstract BaseColumnVector getChild();
   /**
    * Holds the off heap state of the column vector so we can clean it up, even if it is leaked.
    */
@@ -21,6 +23,12 @@ public abstract class BaseColumnVector {
     private BaseDeviceMemoryBuffer data;
     private BaseDeviceMemoryBuffer valid;
     private BaseDeviceMemoryBuffer offsets;
+
+    public void setLcv(ListColumnVector lcv) {
+      this.lcv = lcv;
+    }
+
+    private ListColumnVector lcv;
 
     /**
      * Make a column form an existing cudf::column *.
@@ -37,13 +45,14 @@ public abstract class BaseColumnVector {
      * Create a cudf::column_view from device side data.
      */
     public OffHeapState(DType type, int rows, Optional<Long> nullCount,
-                        DeviceMemoryBuffer data, DeviceMemoryBuffer valid, DeviceMemoryBuffer offsets) {
+                        DeviceMemoryBuffer data, DeviceMemoryBuffer valid, DeviceMemoryBuffer offsets,ListColumnVector lcv) {
       assert (nullCount.isPresent() && nullCount.get() <= Integer.MAX_VALUE)
           || !nullCount.isPresent();
       int nc = nullCount.orElse(UNKNOWN_NULL_COUNT).intValue();
       this.data = data;
       this.valid = valid;
       this.offsets = offsets;
+      this.lcv = lcv;
       if (rows == 0) {
         this.columnHandle = makeEmptyCudfColumn(type.nativeId);
       } else {
@@ -51,7 +60,7 @@ public abstract class BaseColumnVector {
         long cdSize = data == null ? 0 : data.length;
         long od = offsets == null ? 0 : offsets.address;
         long vd = valid == null ? 0 : valid.address;
-        this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows);
+        this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows, lcv.offHeap.getViewHandle());
       }
     }
 
@@ -129,6 +138,16 @@ public abstract class BaseColumnVector {
 
     public BaseDeviceMemoryBuffer getOffsets() {
       return offsets;
+    }
+
+    public ArrayList<OffHeapState> getChildrenPointers() {
+      long[] values = BaseColumnVector.getChildrenPointers(getViewHandle());
+      ArrayList<OffHeapState> cvs = new ArrayList<>();
+      for(int i =0;i < values.length;i++) {
+        cvs.add(new OffHeapState((values[i])));
+        System.out.println(i+"TYPE: "+ DType.fromNative(getNativeTypeId((values[i]))));
+      }
+      return cvs;
     }
 
     @Override
@@ -253,8 +272,9 @@ public abstract class BaseColumnVector {
 
   protected static native long getChildColumnView(long viewHandle) throws CudfException;
 
-  private static native long makeCudfColumnView(int type, long data, long dataSize, long offsets, long valid, int nullCount, int size);
+  private static native long makeCudfColumnView(int type, long data, long dataSize, long offsets, long valid, int nullCount, int size, long childLcv);
 
+  private static native long[] getChildrenPointers(long viewHandle) throws CudfException;
   ////////
   // Native methods specific to cudf::column. These either take or create a cudf::column
   // instead of a cudf::column_view so they need to be used with caution. These should

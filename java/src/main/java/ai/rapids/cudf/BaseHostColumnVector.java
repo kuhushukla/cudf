@@ -10,6 +10,7 @@ public abstract class BaseHostColumnVector {
    */
   protected DType type;
   protected long rows;
+  protected abstract BaseHostColumnVector getChild();
   protected static final class OffHeapState extends MemoryCleaner.Cleaner {
     public HostMemoryBuffer data;
     public HostMemoryBuffer valid;

@@ -47,6 +47,11 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
     NativeDepsLoader.loadNativeDeps();
   }
 
+  @Override
+  protected BaseHostColumnVector getChild() {
+    return lcv;
+  }
+
   private final BaseHostColumnVector.OffHeapState offHeap;
   private ListHostColumnVector lcv = null;
   private Optional<Long> nullCount = Optional.empty();
@@ -279,14 +284,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
       if (this.type != DType.LIST) {
         ret = new ColumnVector(type, rows, nullCount, data, valid, offsets);
       } else {
-        DeviceMemoryBuffer tmpOffsets = DeviceMemoryBuffer.allocate(offHeap.offsets.length);
-        tmpOffsets.copyFromHostBuffer(0,offHeap.offsets, 0, offHeap.offsets.length);
-        DeviceMemoryBuffer tmpValid = null;
-        if (offHeap.valid != null) {
-          DeviceMemoryBuffer.allocate(offHeap.valid.length);
-          tmpValid.copyFromHostBuffer(0,offHeap.valid, 0, offHeap.valid.length);
-        }
-        ListColumnVector listColumnVector = new ListColumnVector(lcv.type, (int)lcv.rows, null, tmpValid, tmpOffsets);
+        ListColumnVector listColumnVector = makeLcv(this.lcv);
         ret = new ColumnVector(type, rows, nullCount, data, valid, offsets, listColumnVector);
       }
       data = null;
@@ -306,6 +304,26 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
     }
   }
 
+  ListColumnVector makeLcv(ListHostColumnVector lhcv) {
+    DeviceMemoryBuffer tmpValid = null;
+    DeviceMemoryBuffer tmpOffsets = null;
+    if (lhcv.offHeap.valid != null) {
+      tmpValid=DeviceMemoryBuffer.allocate(lhcv.offHeap.valid.length);
+      tmpValid.copyFromHostBuffer(lhcv.offHeap.valid, 0, lhcv.offHeap.valid.length);
+    }
+    if (lhcv.offHeap.offsets != null) {
+      tmpOffsets=DeviceMemoryBuffer.allocate(lhcv.offHeap.offsets.length);
+      tmpOffsets.copyFromHostBuffer(lhcv.offHeap.offsets, 0, lhcv.offHeap.offsets.length);
+    }
+
+    if (lhcv.childLcv == null) {
+      return new ListColumnVector(lhcv.type, (int)lhcv.rows, null, tmpValid, tmpOffsets);
+    }
+    ListColumnVector listColumnVector = new ListColumnVector(lhcv.type, (int)lhcv.rows, null, tmpValid, tmpOffsets);
+    listColumnVector.childLcv = makeLcv(lhcv.childLcv);
+    listColumnVector.offHeap.setLcv(listColumnVector.childLcv);
+    return listColumnVector;
+  }
   /////////////////////////////////////////////////////////////////////////////
   // DATA ACCESS
   /////////////////////////////////////////////////////////////////////////////
@@ -496,27 +514,23 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
   }
 
   public List getListParent(long rowIndex) throws Exception {
-    return getListMain(rowIndex, this.offHeap.offsets, this);
+    return getListMain(rowIndex, this.lcv);
   }
 
-  public List getListMain(long rowIndex, HostMemoryBuffer offsets, BaseHostColumnVector mainCv) throws Exception {
-    System.out.println("KUHU child.type="+mainCv);
+  public List getListMain(long rowIndex, BaseColumnVector mainCv) throws Exception {
+    System.out.println("KUHU child.type="+mainCv + " mainCv.childLcv" +mainCv.childLcv);
 
-    if (mainCv != null && mainCv.type == DType.LIST) {
+    if (mainCv.childLcv != null) {
       List retList = new ArrayList();
-      int start = offsets.getInt(rowIndex*DType.INT32.getSizeInBytes());
-      int end = offsets.getInt((rowIndex+1)*DType.INT32.getSizeInBytes());
+      int start = mainCv.offHeap.offsets.getInt(rowIndex*DType.INT32.getSizeInBytes());
+      int end = mainCv.offHeap.offsets.getInt((rowIndex+1)*DType.INT32.getSizeInBytes());
       for(int i =start;i<end;i++) {
-        if (mainCv instanceof HostColumnVector) {
-          retList.add(getListMain(i, ((HostColumnVector) mainCv).lcv.offHeap.offsets, ((HostColumnVector) mainCv).lcv));
-        } else {
-          retList.add(getListMain(i, ((ListHostColumnVector) mainCv).childLcv.offHeap.offsets, ((ListHostColumnVector) mainCv).childLcv));
-        }
+        retList.add(getListMain(i, mainCv.childLcv));
       }
       return retList;
     } else {
-      int start = offsets.getInt(rowIndex*DType.INT32.getSizeInBytes());
-      int end = offsets.getInt((rowIndex+1)*DType.INT32.getSizeInBytes());
+      int start = mainCv.offHeap.offsets.getInt(rowIndex*DType.INT32.getSizeInBytes());
+      int end = mainCv.offHeap.offsets.getInt((rowIndex+1)*DType.INT32.getSizeInBytes());
       System.out.println("KUHU getListMain start ="+start + " end="+end + "this.lcv.type="+this.lcv.type);
       byte[] tmpD = new byte[(int)this.offHeap.data.length];
       System.out.println("KUHU getlist DATA ==========");

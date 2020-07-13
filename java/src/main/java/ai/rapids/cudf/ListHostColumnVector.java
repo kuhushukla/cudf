@@ -21,4 +21,8 @@ public class ListHostColumnVector extends BaseHostColumnVector {
     this.childLcv = childLcv;
     this.offHeap = offHeap;
   }
+  @Override
+  protected BaseHostColumnVector getChild() {
+    return childLcv;
+  }
 }
