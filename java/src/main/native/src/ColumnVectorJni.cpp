@@ -1072,7 +1072,8 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_BaseColumnVector_makeCudfColumnView(
                                                  j_null_count, 0, {offsets_column, *child_view}));
                }
                 else {
-      ret.reset(new cudf::column_view(n_data_type, size, data, valid, j_null_count));
+                std::cout<< "n_data_type" << n_data_type.id() <<" KUHU make cudf cv data size=" <<j_data_size << " size " << size << "\n";
+      ret.reset(new cudf::column_view(n_data_type, j_data_size, data, valid, j_null_count));
     }
 
     return reinterpret_cast<jlong>(ret.release());
@@ -1176,6 +1177,8 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeDataP
                 data_view = cudf::lists_column_view(data_view).child();
               }
               ret[0] = reinterpret_cast<jlong>(data_view.data<char>());
+              std::cout << "KUHU data_view.size()\t" << data_view.size() << "\n";
+              std::cout << "KUHU data_view.type()\t" << data_view.type().id() << "\n";
               ret[1] = data_view.size();
       } else {
         ret[0] = 0;
@@ -1203,6 +1206,7 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getChildrenPoi
     std::cout << "LIST 0\n" << column->type().id() << "\n";
     std::cout << "LIST 0\n";
     while(view != nullptr) {
+//    std::cout << " view offsets =" << view->offsets().data<char>();
         std::unique_ptr<cudf::lists_column_view> next_view;
         cudf::column_view child_view = view->child();
         std::cout << "LIST 1\n" << child_view.type().id() << "\n";
@@ -1210,11 +1214,12 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getChildrenPoi
         std::cout << "LIST AGAIN\n";
           next_view = std::make_unique<cudf::lists_column_view>(view->child());
         } else {
-        std::cout << "LIST ELSE\n";
           ret[i+1] = reinterpret_cast<jlong>(std::make_unique<cudf::column_view>(view->child()).release());
+          std::cout << "LIST ELSE " << ret[i+1] << "\n";
           next_view = nullptr;
         }
         ret[i] = reinterpret_cast<jlong>(view.release());
+        std::cout << "ret[i] = " << ret[i] << "\n";
         view = std::move(next_view);
         i++;
     }
@@ -1245,7 +1250,7 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeOffse
                    cudf::lists_column_view view = cudf::lists_column_view(*column);
                    //make recursive
                    cudf::column_view offsets_view = view.offsets();
-                   ret[0] = reinterpret_cast<jlong>(offsets_view.data<int>());
+                   ret[0] = reinterpret_cast<jlong>(offsets_view.data<char>());
                    ret[1] = sizeof(int) * offsets_view.size();
                  } else {
                    ret[0] = 0;

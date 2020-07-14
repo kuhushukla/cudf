@@ -62,6 +62,7 @@ public abstract class BaseColumnVector {
         long vd = valid == null ? 0 : valid.address;
         if (type == DType.LIST) {
           this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows, lcv.offHeap.getViewHandle());
+          System.out.println(rows+"KUHU NEW CV "+new ColumnVector(viewHandle).offHeap.getOffsets().length);
         } else {
           this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows, 0l);
         }
@@ -148,8 +149,10 @@ public abstract class BaseColumnVector {
       long[] values = BaseColumnVector.getChildrenPointers(getViewHandle());
       ArrayList<OffHeapState> cvs = new ArrayList<>();
       for(int i =0;i < values.length;i++) {
-        cvs.add(new OffHeapState((values[i])));
-        System.out.println(i+"TYPE: "+ DType.fromNative(getNativeTypeId((values[i]))));
+        if (values[i] !=0) {
+          cvs.add(new OffHeapState((values[i])));
+        }
+//        System.out.println(i+"TYPE: "+ DType.fromNative(getNativeTypeId((values[i]))));
       }
       return cvs;
     }

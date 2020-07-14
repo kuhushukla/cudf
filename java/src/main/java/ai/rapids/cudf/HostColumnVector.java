@@ -288,6 +288,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
       data = null;
       valid = null;
       offsets = null;
+      System.out.println("KUHU C2D ret native view =" +ret.getNativeView()  + " ret.data=" + ret.offHeap.getData().length);
       return ret;
     } finally {
       if (data != null) {

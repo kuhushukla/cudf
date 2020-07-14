@@ -37,7 +37,7 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     NativeDepsLoader.loadNativeDeps();
   }
 
-  private final BaseColumnVector.OffHeapState offHeap;
+  final BaseColumnVector.OffHeapState offHeap;
   private Optional<Long> nullCount = Optional.empty();
   private int refCount;
   private ListColumnVector listColumnVector;
@@ -51,8 +51,14 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     MemoryCleaner.register(this, offHeap);
     this.type = offHeap.getNativeType();
     this.rows = offHeap.getNativeRowCount();
-    offHeap.getChildrenPointers();
+    ArrayList<OffHeapState> offHeapStates = offHeap.getChildrenPointers();
+    if (offHeapStates.size() == 2) {
+      this.listColumnVector = new ListColumnVector(null, offHeapStates.get(1));
+    } else {
+      this.listColumnVector = new ListColumnVector(new ListColumnVector(null,offHeapStates.get(2)), offHeapStates.get(1));
+    }
     this.refCount = 0;
+    System.out.println("KUHU CTR ret native view =" +getNativeView()  + " ret.data=" + offHeap.getData().length);
     incRefCountInternal(true);
   }
 
