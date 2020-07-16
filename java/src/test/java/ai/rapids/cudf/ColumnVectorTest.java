@@ -139,15 +139,29 @@ public class ColumnVectorTest extends CudfTestBase {
     List<List<Integer>> mainList = new ArrayList<>();
     mainList.add(list);
     mainList.add(list2);
-//    ColumnVector columnVector = ColumnVector.build(DType.LIST, DType.INT64, 2,list.size(), (b) -> b.appendList(DType.LIST, DType.INT32, list));
-    ColumnVector res = ColumnVector.fromLists(DType.INT32, mainList);
+    List<Integer> list3 = new ArrayList<>();
+    list3.add(10);
+    list3.add(20);
+    list3.add(30);
+    List<Integer> list4 = new ArrayList<>();
+    list4.add(40);
+    list4.add(50);
+    list4.add(60);
+    List<List<Integer>> mainList2 = new ArrayList<>();
+    mainList2.add(list3);
+    mainList2.add(list4);
+
+    ColumnVector res = ColumnVector.fromLists(DType.INT32, mainList, mainList2);
     res = new ColumnVector(res.getNativeView());
     HostColumnVector hcv = res.copyToHost();
     System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
     try {
       List<Integer> ret = hcv.getListParent(0);
+      List<Integer> ret2 = hcv.getListParent(1);
       System.out.println("KUHU ele =" + ret.get(0));
       System.out.println("KUHU ele =" + ret.get(1));
+      System.out.println("KUHU ele =" + ret2.get(0));
+      System.out.println("KUHU ele =" + ret2.get(1));
     } catch (Exception e) {
       e.printStackTrace();
     }

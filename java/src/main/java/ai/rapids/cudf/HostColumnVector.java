@@ -261,7 +261,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
 
       HostMemoryBuffer hoff = this.offHeap.offsets;
       byte[] tmp = new byte[(int)this.offHeap.offsets.length];
-      System.out.println("KUHU TMP OFFSETS==========");
+      System.out.println("KUHU TMP OFFSETS c2d==========");
       this.offHeap.offsets.getBytes(tmp,0,0,tmp.length);
       for (int i = 0; i < tmp.length; i++) {
         System.out.print((tmp[i]) + " ");
@@ -522,8 +522,17 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
 
     if (mainCv.getChild().type == DType.LIST) {
       List retList = new ArrayList();
+      byte[] offsetBytes = new byte[(int)mainCv.offHeap.offsets.length];
+      mainCv.offHeap.offsets.getBytes(offsetBytes, 0, 0, mainCv.offHeap.offsets.length);
+      System.out.println("maincv offsets");
+      for (int i =0; i< offsetBytes.length;i++) {
+        System.out.print((offsetBytes[i]) + " ");
+      }
       int start = mainCv.offHeap.offsets.getInt(rowIndex*DType.INT32.getSizeInBytes());
       int end = mainCv.offHeap.offsets.getInt((rowIndex+1)*DType.INT32.getSizeInBytes());
+      if (start == end) {
+        retList.add(getListMain(start, mainCv.getChild()));
+      }
       for(int i =start;i<end;i++) {
         retList.add(getListMain(i, mainCv.getChild()));
       }
@@ -1214,9 +1223,13 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
 
     public Builder appendList(DType type, DType baseType, int level, int prevSize, List list) {
       if(list.get(0) instanceof List) {
+        int newSize = 0;
         System.out.println("KUHU LSIST OF LISTS");
         System.out.println("KUHU offsets.size()=" + offsets.size());
         List<List> tmpList = list;
+        for(List insideList: tmpList) {
+          newSize ++;
+        }
         if (offsets.size() <= level) {
           System.out.println("1 KUHU offsets.size()=" + offsets.size());
           System.out.println("1 KUHU level" + level);
@@ -1226,15 +1239,15 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
         }
         for(List insideList: tmpList) {
           System.out.println("KUHU LSIST OF LISTS insideList=" + insideList + "level=" + level);
-          appendList(type, baseType, level + 1, list.size()+1, insideList);
+          appendList(type, baseType, level + 1, prevSize + newSize, insideList);
         }
 //        this.offsets.add(HostMemoryBuffer.allocate((rows + 1) * OFFSET_SIZE));
 
         System.out.println("KUHU offsets.size()=" + offsets.size());
         System.out.println("KUHU currOffsets.size()=" + currentOffsets.size());
         System.out.println("KUHU level" + level);
-        this.offsets.get(level).setInt(this.currentOffsets.get(level), list.size());
-        this.currentOffsets.set(level,this.currentOffsets.get(level)+OFFSET_SIZE);
+        this.offsets.get(level).setInt(this.currentOffsets.get(level), this.offsets.get(level).getInt(this.currentOffsets.get(level)- OFFSET_SIZE) + list.size());
+        this.currentOffsets.set(level, this.currentOffsets.get(level)+OFFSET_SIZE);
         return this;
       } else {
         System.out.println("KUHU MAIN list" + list + " level =" + level + currentStringByteIndex*baseType.getSizeInBytes());
@@ -1314,6 +1327,8 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
         System.out.println("KUHU rows=" + rows);
         System.out.println("KUHU offset size=" + OFFSET_SIZE);
         System.out.println("KUHU currentStringByteIndex=" + currentStringByteIndex);
+        System.out.println("KUHU this.currentOffsets.get(level)=" + this.currentOffsets.get(level));
+        System.out.println("KUHU this.offsets.get(level) size=" + this.offsets.get(level).length);
 //        offsets.get(level).setInt(currentIndex * OFFSET_SIZE, currentStringByteIndex);
         this.offsets.get(level).setInt(this.currentOffsets.get(level), currentStringByteIndex);
         this.currentOffsets.set(level,this.currentOffsets.get(level)+OFFSET_SIZE);
