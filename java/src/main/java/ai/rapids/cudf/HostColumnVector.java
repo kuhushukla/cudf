@@ -260,18 +260,18 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
       }
 
       HostMemoryBuffer hoff = this.offHeap.offsets;
-      byte[] tmp = new byte[(int)this.offHeap.offsets.length];
-      System.out.println("KUHU TMP OFFSETS c2d==========");
-      this.offHeap.offsets.getBytes(tmp,0,0,tmp.length);
-      for (int i = 0; i < tmp.length; i++) {
-        System.out.print((tmp[i]) + " ");
-      }
-      byte[] tmpD = new byte[(int)this.offHeap.data.length];
-      System.out.println("KUHU TMP DATA ==========");
-      this.offHeap.data.getBytes(tmpD,0,0,tmpD.length);
-      for (int i = 0; i < tmpD.length; i++) {
-        System.out.print((tmpD[i]) + " ");
-      }
+//      byte[] tmp = new byte[(int)this.offHeap.offsets.length];
+//      System.out.println("KUHU TMP OFFSETS c2d==========");
+//      this.offHeap.offsets.getBytes(tmp,0,0,tmp.length);
+//      for (int i = 0; i < tmp.length; i++) {
+//        System.out.print((tmp[i]) + " ");
+//      }
+//      byte[] tmpD = new byte[(int)this.offHeap.data.length];
+//      System.out.println("KUHU TMP DATA ==========");
+//      this.offHeap.data.getBytes(tmpD,0,0,tmpD.length);
+//      for (int i = 0; i < tmpD.length; i++) {
+//        System.out.print((tmpD[i]) + " ");
+//      }
       if (hoff != null) {
         long offsetsLen = OFFSET_SIZE * (rows + 1);
         System.out.println("KUHU offsetsLen=" +offsetsLen);
@@ -318,7 +318,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
     if (lhcv.childLcv == null) {
       DeviceMemoryBuffer data = DeviceMemoryBuffer.allocate(this.offHeap.data.length);
       data.copyFromHostBuffer(this.offHeap.data, 0, this.offHeap.data.length);
-      return new ListColumnVector(lhcv.type, (int)lhcv.rows, data, tmpValid, tmpOffsets, null);
+      return new ListColumnVector(lhcv.type, (int)this.offHeap.data.length/lhcv.type.getSizeInBytes(), data, tmpValid, tmpOffsets, null);
     }
     ListColumnVector listColumnVector = new ListColumnVector(lhcv.type, (int)lhcv.rows, null, tmpValid, tmpOffsets, makeLcv(lhcv.childLcv));
 
@@ -542,7 +542,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
       int end = mainCv.offHeap.offsets.getInt((rowIndex+1)*DType.INT32.getSizeInBytes());
       System.out.println("KUHU getListMain start ="+start + " end="+end + "this.lcv.type="+this.lcv.type);
       byte[] tmpD = new byte[(int)this.offHeap.data.length];
-      System.out.println("KUHU getlist DATA ==========");
+      System.out.println("KUHU getlist DATA ==========" + this.offHeap.data.length);
       this.offHeap.data.getBytes(tmpD,0,0,tmpD.length);
 
       int size = (end-start)*mainCv.getChild().type.getSizeInBytes();
@@ -1713,7 +1713,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
         return cv;
       } else {
         HostColumnVector cv = new HostColumnVector(type,
-            rows, Optional.of(nullCount), data, valid, offsets.get(0), null);
+            rows, Optional.of(nullCount), data, valid, offsets == null || offsets.isEmpty() ? null : offsets.get(0), null);
         built = true;
         return cv;
       }
