@@ -229,7 +229,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
     try {
       HostMemoryBuffer hdata = this.offHeap.data;
       if (hdata != null) {
-        long dataLen = rows * DType.INT32.sizeInBytes;
+        long dataLen = rows * type.sizeInBytes;
         if (type == DType.STRING) {
           // This needs a different type
           dataLen = getEndStringOffset(rows - 1);
@@ -249,7 +249,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
           }
         }
         data = DeviceMemoryBuffer.allocate(dataLen);
-        System.out.println("KUHU data copytodevice len=" + data.getLength() + " dataLen" + dataLen);
+        System.out.println(hdata.length + "KUHU data copytodevice len=" + data.getLength() + " dataLen" + dataLen);
         data.copyFromHostBuffer(hdata, 0, dataLen);
       }
       HostMemoryBuffer hvalid = this.offHeap.valid;

@@ -51,11 +51,15 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     MemoryCleaner.register(this, offHeap);
     this.type = offHeap.getNativeType();
     this.rows = offHeap.getNativeRowCount();
-    ArrayList<OffHeapState> offHeapStates = offHeap.getChildrenPointers();
-    if (offHeapStates.size() == 2) {
-      this.listColumnVector = new ListColumnVector(null, offHeapStates.get(1));
+    if (type == DType.LIST) {
+      ArrayList<OffHeapState> offHeapStates = offHeap.getChildrenPointers();
+      if (offHeapStates.size() == 2) {
+        this.listColumnVector = new ListColumnVector(null, offHeapStates.get(1));
+      } else {
+        this.listColumnVector = new ListColumnVector(new ListColumnVector(null, offHeapStates.get(2)), offHeapStates.get(1));
+      }
     } else {
-      this.listColumnVector = new ListColumnVector(new ListColumnVector(null,offHeapStates.get(2)), offHeapStates.get(1));
+      this.listColumnVector = null;
     }
     this.refCount = 0;
     System.out.println("KUHU CTR ret native view =" +getNativeView()  + " ret.data=" + offHeap.getData().length);
@@ -308,10 +312,6 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
         if (valid != null) {
           hostValidityBuffer = HostMemoryBuffer.allocate(valid.getLength());
           hostValidityBuffer.copyFromDeviceBuffer(valid);
-          if (tmpValid != null) {
-            tmpHostValidityBuffer = HostMemoryBuffer.allocate(tmpValid.getLength());
-            tmpHostValidityBuffer.copyFromDeviceBuffer(tmpValid);
-          }
         }
         if (offsets != null) {
           hostOffsetsBuffer = HostMemoryBuffer.allocate(offsets.length);
@@ -322,21 +322,13 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
           for (int i = 0; i < tmp.length; i++) {
             System.out.print((tmp[i]) + " ");
           }
-          if (tmpOffset != null) {
-            tmpHostOffsetsBuffer = HostMemoryBuffer.allocate(tmpOffset.getLength());
-            tmpHostOffsetsBuffer.copyFromDeviceBuffer(tmpOffset);
-          }
         }
         // If a strings column is all null values there is no data buffer allocated
         if (data != null) {
           hostDataBuffer = HostMemoryBuffer.allocate(data.length);
           hostDataBuffer.copyFromDeviceBuffer(data);
-          if (tmpData != null) {
-            tmpHostDataBuffer = HostMemoryBuffer.allocate(tmpData.getLength());
-            tmpHostDataBuffer.copyFromDeviceBuffer(tmpData);
-          }
         }
-        ListHostColumnVector lis = lcvToLhcv(this.listColumnVector);
+        ListHostColumnVector lis = this.listColumnVector == null ? null : lcvToLhcv(this.listColumnVector);
         HostColumnVector ret = new HostColumnVector(type, rows, nullCount,
             hostDataBuffer, hostValidityBuffer, hostOffsetsBuffer, lis);
         needsCleanup = false;
@@ -496,7 +488,10 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
    * @return - Boolean vector
    */
   public ColumnVector isNan() {
-    return new ColumnVector(isNanNative(getNativeView()));
+    long arg1 = getNativeView();
+    long param = isNanNative(arg1);
+    System.out.println("KUHU param is Nan long =" + param + " native handle =" + arg1);
+    return new ColumnVector(param);
   }
 
   /**

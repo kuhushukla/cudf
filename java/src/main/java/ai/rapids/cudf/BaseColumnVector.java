@@ -106,7 +106,9 @@ public abstract class BaseColumnVector {
     }
 
     private DeviceMemoryBufferView getNativeValidPointer() {
-      long[] values = BaseColumnVector.getNativeValidPointer(getViewHandle());
+      long arg1 = getViewHandle();
+      System.out.println("getNativeValidPointer getViewHandle()" + arg1);
+      long[] values = BaseColumnVector.getNativeValidPointer(arg1);
       if (values[0] == 0) {
         return null;
       }

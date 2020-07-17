@@ -399,9 +399,9 @@ public class ColumnVectorTest extends CudfTestBase {
 
    @Test
   void isNanTestWithNulls() {
-    try (ColumnVector v = ColumnVector.fromBoxedDoubles(null, null, Double.NaN, null, Double.NaN, null);
-         ColumnVector vF = ColumnVector.fromBoxedFloats(null, null, Float.NaN, null, Float.NaN, null);
-         ColumnVector expected = ColumnVector.fromBoxedBooleans(false, false, true, false, true, false);
+    try (ColumnVector v = ColumnVector.fromBoxedDoubles(null, null, Double.NaN, null, Double.NaN, null, null);
+         ColumnVector vF = ColumnVector.fromBoxedFloats(null, null, Float.NaN, null, Float.NaN, null, null);
+         ColumnVector expected = ColumnVector.fromBoxedBooleans(false, false, true, false, true, false, false);
          ColumnVector result = v.isNan();
          ColumnVector resultF = vF.isNan()) {
       assertColumnsAreEqual(expected, result);
