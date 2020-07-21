@@ -85,14 +85,14 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
     if (type != DType.STRING && type != DType.LIST) {
       assert offsetBuffer == null : "offsets are only supported for LIST";
     }
-    if (hostValidityBuffer != null) {
-      byte[] tmp = new byte[(int) hostValidityBuffer.length];
-      System.out.println("KUHU HCV VALID ==========");
-      hostValidityBuffer.getBytes(tmp, 0, 0, tmp.length);
-      for (int i = 0; i < tmp.length; i++) {
-        System.out.print((tmp[i]) + " ");
-      }
-    }
+//    if (hostValidityBuffer != null) {
+//      byte[] tmp = new byte[(int) hostValidityBuffer.length];
+//      System.out.println("KUHU HCV VALID ==========");
+//      hostValidityBuffer.getBytes(tmp, 0, 0, tmp.length);
+//      for (int i = 0; i < tmp.length; i++) {
+//        System.out.print((tmp[i]) + " ");
+//      }
+//    }
     offHeap = new BaseHostColumnVector.OffHeapState(hostDataBuffer, hostValidityBuffer, offsetBuffer);
     MemoryCleaner.register(this, offHeap);
     this.rows = rows;
@@ -582,56 +582,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
       return list;
     }
   }
-  public List getList(long index) throws IOException, ClassNotFoundException {
-    System.out.println("KUHU type = " + type);
-    //assert type == DType.LIST;
-    HostMemoryBuffer offsets = lcv.offHeap.offsets;
-    HostMemoryBuffer data = offHeap.data;
-    int dataLen = (int)data.length;
-    System.out.println("KUHU data = " + data.getLength());
-    System.out.println("KUHU offsets.len = " + offsets.length);
-//    System.out.println("KUHU index * OFFSET_SIZE = "+index * OFFSET_SIZE);
-    int start = offsets.getInt(index*DType.INT32.getSizeInBytes())*DType.INT32.getSizeInBytes();
-    System.out.println("KUHU start = " + start);
-//    long endIndex = (offsets.length / OFFSET_SIZE - 1) * OFFSET_SIZE;
 
-    long dataStart = data.address + start;
-    int end = offsets.getInt((index+1)*DType.INT32.getSizeInBytes())*DType.INT32.getSizeInBytes();
-    byte[] offsetBytes = new byte[(int)offsets.length];
-    offsets.getBytes(offsetBytes, 0, 0, offsets.length);
-    byte[] dataBytes = new byte[(int)data.length];
-    data.getBytes(dataBytes,0,0,dataBytes.length);
-    System.out.println("KUHU ALL DATA========"+dataBytes.length);
-    for (int i =0; i< dataBytes.length;i++) {
-      System.out.print((dataBytes[i]) + " ");
-    }
-    System.out.println("KUHU offsetBytes========"+offsetBytes.length);
-    System.out.println("KUHU ListColumnVector offsets =" + this.lcv.offHeap.offsets.address + " len =" +
-        this.lcv.offHeap.offsets.length);
-    for (int i =0; i< offsetBytes.length;i++) {
-      System.out.print((offsetBytes[i]) + " ");
-    }
-    int size = (int) (end - start);
-    byte[] rawData = new byte[dataLen];
-    System.out.println("KUHU end = " + end + " start=" + start + "dataStart=" + dataStart + " size=" + size);
-    if (size > 0) {
-      offHeap.data.getBytes(rawData, 0, start, size);
-    }
-
-    System.out.println("KUHU rawdata========"+rawData.length);
-    for (int i =0; i < rawData.length;i++) {
-      System.out.print((rawData[i]) + " ");
-    }
-    ByteArrayInputStream bais = new ByteArrayInputStream(rawData);
-    DataInputStream dataInputStream = new DataInputStream(bais);
-    List<Integer> list = new ArrayList<>();
-      System.out.println("KUHU ELEMENTS");
-      while (dataInputStream.available() > 0) {
-        list.add(dataInputStream.readInt());
-//        System.out.println(list.get(list.size()-1));
-      }
-    return list;
-  }
   /**
    * Get the value at index.  This API is slow as it has to translate the
    * string representation.  Please use it with caution.
@@ -1849,9 +1800,11 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
           valid.close();
           valid = null;
         }
-        if (offsets != null) {
+        if (!offsets.isEmpty()) {
           // close all
-          offsets.get(0).close();
+          for (HostMemoryBuffer offset : offsets) {
+            offset.close();
+          }
           offsets = null;
         }
         built = true;

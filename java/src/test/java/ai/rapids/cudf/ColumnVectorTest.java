@@ -18,12 +18,10 @@
 
 package ai.rapids.cudf;
 
-import jdk.nashorn.internal.ir.annotations.Ignore;
+
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import javax.management.AttributeList;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -116,7 +114,8 @@ public class ColumnVectorTest extends CudfTestBase {
     list3.add(2);
 //    ColumnVector columnVector = ColumnVector.build(DType.LIST, DType.INT64, 2,list.size(), (b) -> b.appendList(DType.LIST, DType.INT32, list));
     ColumnVector res = ColumnVector.fromLists(DType.INT32, list, list2, list3);
-    res = new ColumnVector(res.getNativeView(), true);
+    //testing only need gather in jni
+//    res = new ColumnVector(res.getNativeView(), true);
 //    System.out.println("KUHU cv type =" + columnVector.getType() + "rows" + columnVector.getRowCount());
     HostColumnVector hcv = res.copyToHost();
     System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
@@ -124,7 +123,8 @@ public class ColumnVectorTest extends CudfTestBase {
     System.out.println("KUHU ele =" + ret.get(0));
     System.out.println("KUHU ele =" + ret.get(1));
     System.out.println("KUHU ele =" + ret.get(2));
-
+    res.close();
+    hcv.close();
   }
 
   @Test
@@ -153,7 +153,7 @@ public class ColumnVectorTest extends CudfTestBase {
     mainList2.add(list4);
 
     ColumnVector res = ColumnVector.fromLists(DType.INT32, mainList, mainList2);
-    res = new ColumnVector(res.getNativeView(), true);
+//    res = new ColumnVector(res.getNativeView(), true);
     HostColumnVector hcv = res.copyToHost();
     System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
     try {
@@ -165,6 +165,9 @@ public class ColumnVectorTest extends CudfTestBase {
       System.out.println("KUHU ele =" + ret2.get(1));
     } catch (Exception e) {
       e.printStackTrace();
+    } finally {
+      res.close();
+      hcv.close();
     }
   }
 
@@ -400,18 +403,15 @@ public class ColumnVectorTest extends CudfTestBase {
 
    @Test
   void isNanTestWithNulls() {
-    ColumnVector v = ColumnVector.fromBoxedDoubles(null, null, Double.NaN, null, Double.NaN, null);
-         ColumnVector vF = ColumnVector.fromBoxedFloats(null, null, Float.NaN, null, Float.NaN, null);
-         ColumnVector expected = ColumnVector.fromBoxedBooleans(false, false, true, false, true, false);
-//     ColumnVector kcv = new ColumnVector(v.getNativeView());
-//     ColumnVector kcv2 = new ColumnVector(vF.getNativeView());
-//     System.out.println("KUHU kcv v buff addr = " + kcv.offHeap.getValid().address);
-//     System.out.println("KUHU kcv2 v buff addr = " + kcv2.offHeap.getValid().address);
-         ColumnVector result = v.isNan();
-         ColumnVector resultF = vF.isNan();
-      assertColumnsAreEqual(expected, result);
-      assertColumnsAreEqual(expected, resultF);
-  }
+     try (ColumnVector v = ColumnVector.fromBoxedDoubles(null, null, Double.NaN, null, Double.NaN, null);
+          ColumnVector vF = ColumnVector.fromBoxedFloats(null, null, Float.NaN, null, Float.NaN, null);
+          ColumnVector expected = ColumnVector.fromBoxedBooleans(false, false, true, false, true, false);
+          ColumnVector result = v.isNan();
+          ColumnVector resultF = vF.isNan()) {
+       assertColumnsAreEqual(expected, result);
+       assertColumnsAreEqual(expected, resultF);
+     }
+   }
 
   @Test
   void isNanForTypeMismatch() {
@@ -1539,8 +1539,8 @@ public class ColumnVectorTest extends CudfTestBase {
           .window(3, 2).minPeriods(3)
           .window(arraywindowCol, arraywindowCol).build());
 
-      assertThrows(IllegalArgumentException.class, 
-                   () -> arraywindowCol.rollingWindow(AggregateOp.SUM, 
+      assertThrows(IllegalArgumentException.class,
+                   () -> arraywindowCol.rollingWindow(AggregateOp.SUM,
                                                       WindowOptions.builder().window(2, 1).minPeriods(1).timestampColumnIndex(0).build()));
     }
   }

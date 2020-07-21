@@ -56,6 +56,7 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     this.rows = offHeap.getNativeRowCount();
     if (type == DType.LIST) {
       ArrayList<OffHeapState> offHeapStates = offHeap.getChildrenPointers();
+      //remove hard code
       if (offHeapStates.size() == 2) {
         this.listColumnVector = new ListColumnVector(null, offHeapStates.get(1));
       } else {
@@ -69,6 +70,7 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     incRefCountInternal(true);
   }
 
+  // temp change - testing only need gather in jni
   ColumnVector(long nativePointer, boolean throwAway) {
     assert nativePointer != 0;
     offHeap = new BaseColumnVector.OffHeapState(nativePointer, throwAway);
@@ -199,6 +201,9 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     } else if (refCount < 0) {
       offHeap.logRefCountDebug("double free " + this);
       throw new IllegalStateException("Close called too many times " + this);
+    }
+    if (this.listColumnVector != null) {
+      listColumnVector.close();
     }
   }
 

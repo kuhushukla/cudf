@@ -35,4 +35,11 @@ public class ListColumnVector extends BaseColumnVector {
   protected BaseColumnVector getChild() {
     return childLcv;
   }
+
+  public void close() {
+    this.offHeap.cleanImpl(true);
+    if (childLcv != null) {
+      childLcv.close();
+    }
+  }
 }

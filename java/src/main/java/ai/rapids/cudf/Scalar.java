@@ -80,6 +80,8 @@ public final class Scalar implements AutoCloseable, BinaryOperable {
     case DURATION_NANOSECONDS:
     case DURATION_SECONDS:
       return new Scalar(type, makeDurationTimeScalar(type.nativeId, 0, false));
+    case LIST:
+      return null;
     default:
       throw new IllegalArgumentException("Unexpected type: " + type);
     }
