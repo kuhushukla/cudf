@@ -1047,6 +1047,9 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_BaseColumnVector_makeCudfColumnView(
     std::unique_ptr<cudf::column_view> ret;
     void *data = reinterpret_cast<void *>(j_data);
     cudf::bitmask_type *valid = reinterpret_cast<cudf::bitmask_type *>(j_valid);
+    cudf::jni::native_jlongArray retTmp(env, 2);
+    retTmp[0] = reinterpret_cast<jlong>(valid);
+    std::cout << "KUHU retTmp =" << retTmp[0];
     if (valid == nullptr) {
       j_null_count = 0;
     }
@@ -1273,6 +1276,7 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getNativeValid
     cudf::jni::native_jlongArray ret(env, 2);
     cudf::column_view *column = reinterpret_cast<cudf::column_view *>(handle);
     ret[0] = reinterpret_cast<jlong>(column->null_mask());
+    std::cout << "getNativeValidPointer null_mask =" << ret[0] << "\n";
     if (ret[0] != 0) {
       ret[1] = cudf::bitmask_allocation_size_bytes(column->size());
     } else {
@@ -1517,6 +1521,26 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_nansToNulls(JNIEnv *env
   }
   CATCH_STD(env, 0)
 }
+
+//JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_cvToColumn(JNIEnv *env, jobject j_object,
+//                                                                     jlong handle) {
+//
+//  JNI_NULL_CHECK(env, handle, "native view handle is null", 0)
+//
+//  try {
+//    cudf::jni::auto_set_device(env);
+//    cudf::column_view *view = reinterpret_cast<cudf::column_view *>(handle);
+//
+//    std::unique_ptr<cudf::column_view> copy_view(
+//        new cudf::column_view(view->type(), view->size(), view->data<char>()));
+//    // create a column by deep copying the copy_view
+//    std::unique_ptr<cudf::column> copy(new cudf::column(*copy_view));
+//    // set the null mask with nans set to null
+//    copy->set_null_mask(std::move(*pair.first), pair.second);
+//    return reinterpret_cast<jlong>(copy.release());
+//  }
+//  CATCH_STD(env, 0)
+//}
 
 JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_isFloat(JNIEnv *env, jobject j_object,
                                                                  jlong handle) {

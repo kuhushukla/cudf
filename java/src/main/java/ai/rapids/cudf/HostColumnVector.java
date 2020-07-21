@@ -85,6 +85,14 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
     if (type != DType.STRING && type != DType.LIST) {
       assert offsetBuffer == null : "offsets are only supported for LIST";
     }
+    if (hostValidityBuffer != null) {
+      byte[] tmp = new byte[(int) hostValidityBuffer.length];
+      System.out.println("KUHU HCV VALID ==========");
+      hostValidityBuffer.getBytes(tmp, 0, 0, tmp.length);
+      for (int i = 0; i < tmp.length; i++) {
+        System.out.print((tmp[i]) + " ");
+      }
+    }
     offHeap = new BaseHostColumnVector.OffHeapState(hostDataBuffer, hostValidityBuffer, offsetBuffer);
     MemoryCleaner.register(this, offHeap);
     this.rows = rows;
@@ -255,6 +263,13 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
       HostMemoryBuffer hvalid = this.offHeap.valid;
       if (hvalid != null) {
         long validLen = ColumnVector.getNativeValidPointerSize((int)rows);
+        byte[] tmp = new byte[(int)hvalid.length];
+        System.out.println("KUHU TMP VALID c2d==========");
+        hvalid.getBytes(tmp,0,0,tmp.length);
+        for (int i = 0; i < tmp.length; i++) {
+          String hex = String.format("%x", (int) tmp[i]);
+          System.out.print(hex + " ");
+      }
         valid = DeviceMemoryBuffer.allocate(validLen);
         valid.copyFromHostBuffer(hvalid, 0 , validLen);
       }
@@ -657,8 +672,8 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
    * @param bufferSize the size of the string buffer to allocate.
    * @return the builder to use.
    */
-  public static Builder builder(DType type, int rows, long bufferSize) {
-    return new HostColumnVector.Builder(type, DType.INT32, rows, bufferSize);
+  public static Builder builder(int rows, long bufferSize) {
+    return new HostColumnVector.Builder(DType.STRING, rows, bufferSize);
   }
 
   /**
@@ -676,14 +691,14 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
   }
 
   public static HostColumnVector build(int rows, long stringBufferSize, Consumer<Builder> init) {
-    try (HostColumnVector.Builder builder = builder(DType.STRING, rows, stringBufferSize)) {
+    try (HostColumnVector.Builder builder = builder(rows, stringBufferSize)) {
       init.accept(builder);
       return builder.build();
     }
   }
 
-  public static HostColumnVector build(DType listType, int rows, long stringBufferSize, Consumer<Builder> init) {
-    try (HostColumnVector.Builder builder = builder(listType, rows, stringBufferSize)) {
+  public static HostColumnVector build(DType listType, DType baseType, int rows, long stringBufferSize, Consumer<Builder> init) {
+    try (HostColumnVector.Builder builder = builder(listType, baseType, rows, (int)stringBufferSize)) {
       init.accept(builder);
       return builder.build();
     }
@@ -840,7 +855,7 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
     });
   }
 
-  public static<T> HostColumnVector fromLists(DType type, int levels, List<T>... values) {
+  public static<T> HostColumnVector fromLists(DType baseType, List<T>... values) {
     int rows = values.length;
     long nullCount = 0;
     // How many bytes do we need to hold the data.  Sorry this is really expensive
@@ -849,17 +864,17 @@ public final class HostColumnVector extends BaseHostColumnVector implements Auto
       if (s == null) {
         nullCount++;
       } else {
-        bufferSize += s.size()*type.getSizeInBytes();
+        bufferSize += s.size()*baseType.getSizeInBytes();
       }
     }
     //ADD support for nulls
 //    if (nullCount > 0) {
 //      return build(rows, bufferSize, (b) -> b.appendBoxed(values));
 //    }
-    return build(DType.LIST, rows, bufferSize, (b) -> {
+    return build(DType.LIST, baseType, rows, bufferSize, (b) -> {
       for (List s: values) {
-        System.out.println("KUHU from lists" + s);
-        b.appendList(DType.LIST, type, 0, values.length + 1 , s);
+        System.out.println("KUHU from lists" + s + " baseType =" + baseType);
+        b.appendList(DType.LIST, baseType, 0, values.length + 1 , s);
       }
       for(HostMemoryBuffer myOffsets: b.offsets) {
         byte[] tmp = new byte[(int)myOffsets.length];

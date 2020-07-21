@@ -18,6 +18,11 @@ public abstract class BaseColumnVector {
   final class OffHeapState extends MemoryCleaner.Cleaner {
     // This must be kept in sync with the native code
     public static final long UNKNOWN_NULL_COUNT = -1;
+
+    public long getColumnHandle() {
+      return columnHandle;
+    }
+
     private long columnHandle;
     private long viewHandle = 0;
     private BaseDeviceMemoryBuffer data;
@@ -35,12 +40,18 @@ public abstract class BaseColumnVector {
      */
     public OffHeapState(long columnHandle) {
       this.columnHandle = columnHandle;
-      this.viewHandle = columnHandle;
       data = getNativeDataPointer();
       valid = getNativeValidPointer();
       offsets = getNativeOffsetsPointer();
     }
 
+    public OffHeapState(long viewHandle, boolean throwAway) {
+      this.columnHandle = viewHandle;
+      this.viewHandle = viewHandle;
+      data = getNativeDataPointer();
+      valid = getNativeValidPointer();
+      offsets = getNativeOffsetsPointer();
+    }
     /**
      * Create a cudf::column_view from device side data.
      */
@@ -62,8 +73,17 @@ public abstract class BaseColumnVector {
         long vd = valid == null ? 0 : valid.address;
         if (type == DType.LIST) {
           this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows, lcv.offHeap.getViewHandle());
-          System.out.println(rows+"KUHU NEW CV "+new ColumnVector(viewHandle).offHeap.getOffsets().length);
+//          System.out.println(rows+"KUHU NEW CV "+new ColumnVector(viewHandle).offHeap.getOffsets().length);
         } else {
+//          HostMemoryBuffer hvalid = HostMemoryBuffer.allocate(valid.length);
+//          hvalid.copyFromDeviceBuffer(valid);
+//          byte[] tmp = new byte[(int)hvalid.length];
+//          System.out.println("KUHU TMP HVALID makecudfview==========" + valid.length + " " + hvalid.length);
+//          hvalid.getBytes(tmp,0,0,tmp.length);
+//          for (int i = 0; i < tmp.length; i++) {
+//            String hex = String.format("%x", (int) tmp[i]);
+//            System.out.print(hex + " ");
+//          }
           this.viewHandle = makeCudfColumnView(type.nativeId, cd, cdSize, od, vd, nc, rows, 0l);
         }
       }
@@ -83,6 +103,7 @@ public abstract class BaseColumnVector {
 
     public long getViewHandle() {
       if (viewHandle == 0) {
+        System.out.println("kuhu columnHandle =" + columnHandle);
         viewHandle = getNativeColumnView(columnHandle);
       }
       return viewHandle;
@@ -152,7 +173,7 @@ public abstract class BaseColumnVector {
       ArrayList<OffHeapState> cvs = new ArrayList<>();
       for(int i =0;i < values.length;i++) {
         if (values[i] !=0) {
-          cvs.add(new OffHeapState((values[i])));
+          cvs.add(new OffHeapState(values[i], true));
         }
 //        System.out.println(i+"TYPE: "+ DType.fromNative(getNativeTypeId((values[i]))));
       }

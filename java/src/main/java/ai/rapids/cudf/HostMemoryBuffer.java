@@ -535,7 +535,7 @@ public class HostMemoryBuffer extends MemoryBuffer {
    * @param deviceMemoryBuffer buffer to copy data from
    */
   public final void copyFromDeviceBuffer(BaseDeviceMemoryBuffer deviceMemoryBuffer) {
-    System.out.println("KUHU copyFromDeviceBuffer=" + address + " deviceMemoryBuffer.length=" + deviceMemoryBuffer.length);
+    System.out.println(address + " KUHU copyFromDeviceBuffer=" + deviceMemoryBuffer.address + " deviceMemoryBuffer.length=" + deviceMemoryBuffer.length);
     addressOutOfBoundsCheck(address, deviceMemoryBuffer.length, "copy range dest");
     assert !deviceMemoryBuffer.closed;
     Cuda.memcpy(address, deviceMemoryBuffer.address, deviceMemoryBuffer.length,

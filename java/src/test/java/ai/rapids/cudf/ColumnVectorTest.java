@@ -18,6 +18,7 @@
 
 package ai.rapids.cudf;
 
+import jdk.nashorn.internal.ir.annotations.Ignore;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -115,7 +116,7 @@ public class ColumnVectorTest extends CudfTestBase {
     list3.add(2);
 //    ColumnVector columnVector = ColumnVector.build(DType.LIST, DType.INT64, 2,list.size(), (b) -> b.appendList(DType.LIST, DType.INT32, list));
     ColumnVector res = ColumnVector.fromLists(DType.INT32, list, list2, list3);
-    res = new ColumnVector(res.getNativeView());
+    res = new ColumnVector(res.getNativeView(), true);
 //    System.out.println("KUHU cv type =" + columnVector.getType() + "rows" + columnVector.getRowCount());
     HostColumnVector hcv = res.copyToHost();
     System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
@@ -152,7 +153,7 @@ public class ColumnVectorTest extends CudfTestBase {
     mainList2.add(list4);
 
     ColumnVector res = ColumnVector.fromLists(DType.INT32, mainList, mainList2);
-    res = new ColumnVector(res.getNativeView());
+    res = new ColumnVector(res.getNativeView(), true);
     HostColumnVector hcv = res.copyToHost();
     System.out.println("KUHU hcv type =" + hcv.getType() + "rows" + hcv.getRowCount());
     try {
@@ -399,14 +400,17 @@ public class ColumnVectorTest extends CudfTestBase {
 
    @Test
   void isNanTestWithNulls() {
-    try (ColumnVector v = ColumnVector.fromBoxedDoubles(null, null, Double.NaN, null, Double.NaN, null, null);
-         ColumnVector vF = ColumnVector.fromBoxedFloats(null, null, Float.NaN, null, Float.NaN, null, null);
-         ColumnVector expected = ColumnVector.fromBoxedBooleans(false, false, true, false, true, false, false);
+    ColumnVector v = ColumnVector.fromBoxedDoubles(null, null, Double.NaN, null, Double.NaN, null);
+         ColumnVector vF = ColumnVector.fromBoxedFloats(null, null, Float.NaN, null, Float.NaN, null);
+         ColumnVector expected = ColumnVector.fromBoxedBooleans(false, false, true, false, true, false);
+//     ColumnVector kcv = new ColumnVector(v.getNativeView());
+//     ColumnVector kcv2 = new ColumnVector(vF.getNativeView());
+//     System.out.println("KUHU kcv v buff addr = " + kcv.offHeap.getValid().address);
+//     System.out.println("KUHU kcv2 v buff addr = " + kcv2.offHeap.getValid().address);
          ColumnVector result = v.isNan();
-         ColumnVector resultF = vF.isNan()) {
+         ColumnVector resultF = vF.isNan();
       assertColumnsAreEqual(expected, result);
       assertColumnsAreEqual(expected, resultF);
-    }
   }
 
   @Test
@@ -679,6 +683,8 @@ public class ColumnVectorTest extends CudfTestBase {
         case STRING:
           s = Scalar.fromString("hello, world!");
           break;
+        case LIST:
+          continue;
         case EMPTY:
           continue;
         default:
@@ -815,6 +821,8 @@ public class ColumnVectorTest extends CudfTestBase {
           expected = ColumnVector.fromStrings(v, v, v, v);
           break;
         }
+        case LIST:
+          continue;
         case EMPTY:
           continue;
         default:
@@ -841,7 +849,7 @@ public class ColumnVectorTest extends CudfTestBase {
   void testFromScalarNull() {
     final int rowCount = 4;
     for (DType type : DType.values()) {
-      if (type == DType.EMPTY) {
+      if (type == DType.EMPTY || type == DType.LIST) {
         continue;
       }
       try (Scalar s = Scalar.fromNull(type);
@@ -1191,7 +1199,7 @@ public class ColumnVectorTest extends CudfTestBase {
 
   @Test
   void testAppendStrings() {
-    try (HostColumnVector cv = HostColumnVector.build(10, 0, (b) -> {
+    try (HostColumnVector cv = HostColumnVector.build(4, 0, (b) -> {
       b.append("123456789");
       b.append("1011121314151617181920");
       b.append("");

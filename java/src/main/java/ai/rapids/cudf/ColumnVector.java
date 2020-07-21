@@ -62,10 +62,30 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
       this.listColumnVector = null;
     }
     this.refCount = 0;
-    System.out.println("KUHU CTR ret native view =" +getNativeView()  + " ret.data=" + offHeap.getData().length);
+//    System.out.println("KUHU CTR ret native view =" +getNativeView()  + " ret.data=" + offHeap.getData().length);
     incRefCountInternal(true);
   }
 
+  ColumnVector(long nativePointer, boolean throwAway) {
+    assert nativePointer != 0;
+    offHeap = new BaseColumnVector.OffHeapState(nativePointer, throwAway);
+    MemoryCleaner.register(this, offHeap);
+    this.type = offHeap.getNativeType();
+    this.rows = offHeap.getNativeRowCount();
+    if (type == DType.LIST) {
+      ArrayList<OffHeapState> offHeapStates = offHeap.getChildrenPointers();
+      if (offHeapStates.size() == 2) {
+        this.listColumnVector = new ListColumnVector(null, offHeapStates.get(1));
+      } else {
+        this.listColumnVector = new ListColumnVector(new ListColumnVector(null, offHeapStates.get(2)), offHeapStates.get(1));
+      }
+    } else {
+      this.listColumnVector = null;
+    }
+    this.refCount = 0;
+//    System.out.println("KUHU CTR ret native view =" +getNativeView()  + " ret.data=" + offHeap.getData().length);
+    incRefCountInternal(true);
+  }
   /**
    * Create a new column vector based off of data already on the device.
    * @param type the type of the vector
@@ -2325,6 +2345,9 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     return offHeap.getViewHandle();
   }
 
+  public long getColumnHandle() {
+    return offHeap.getColumnHandle();
+  }
   /**
    * Native method to parse and convert a string column vector to unix timestamp. A unix
    * timestamp is a long value representing how many units since 1970-01-01 00:00:00.000 in either
@@ -2641,7 +2664,7 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
   }
 
   public static ColumnVector build(int rows, long stringBufferSize, Consumer<Builder> init) {
-    try (Builder builder = HostColumnVector.builder(DType.STRING, rows, stringBufferSize)) {
+    try (Builder builder = HostColumnVector.builder(rows, stringBufferSize)) {
       init.accept(builder);
       return builder.buildAndPutOnDevice();
     }
@@ -2782,9 +2805,9 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     }
   }
 
-  public static<T> ColumnVector fromLists(DType dType, List<T>... lists) {
+  public static<T> ColumnVector fromLists(DType baseType, List<T>... lists) {
     System.out.println("KUHU fromLists size="+lists.length);
-    try (HostColumnVector host = HostColumnVector.fromLists(dType, 1, lists)) {
+    try (HostColumnVector host = HostColumnVector.fromLists(baseType, lists)) {
       return host.copyToDevice();
     }
   }
