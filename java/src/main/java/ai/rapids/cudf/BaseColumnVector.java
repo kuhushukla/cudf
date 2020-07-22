@@ -169,11 +169,11 @@ public abstract class BaseColumnVector {
     }
 
     public ArrayList<OffHeapState> getChildrenPointers() {
-      long[] values = BaseColumnVector.getChildrenPointers(getViewHandle());
+      long[] values = BaseColumnVector.getChildrenColumnPointers(getColumnHandle());
       ArrayList<OffHeapState> cvs = new ArrayList<>();
       for(int i =0;i < values.length;i++) {
         if (values[i] !=0) {
-          cvs.add(new OffHeapState(values[i], true));
+          cvs.add(new OffHeapState(values[i]));
         }
 //        System.out.println(i+"TYPE: "+ DType.fromNative(getNativeTypeId((values[i]))));
       }
@@ -305,6 +305,7 @@ public abstract class BaseColumnVector {
   private static native long makeCudfColumnView(int type, long data, long dataSize, long offsets, long valid, int nullCount, int size, long childLcv);
 
   private static native long[] getChildrenPointers(long viewHandle) throws CudfException;
+  private static native long[] getChildrenColumnPointers(long colHandle) throws CudfException;
   ////////
   // Native methods specific to cudf::column. These either take or create a cudf::column
   // instead of a cudf::column_view so they need to be used with caution. These should

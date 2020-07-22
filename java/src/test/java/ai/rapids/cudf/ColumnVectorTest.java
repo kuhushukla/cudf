@@ -313,8 +313,8 @@ public class ColumnVectorTest extends CudfTestBase {
     list6.add(200);
     try (ColumnVector res1 = ColumnVector.fromLists(DType.INT32, list, list2, list3);
          ColumnVector res2 = ColumnVector.fromLists(DType.INT32, list4, list5, list6);
-         ColumnVector v = ColumnVector.concatenate(res1, res2)) {
-      HostColumnVector hostColumnVector = v.copyToHost();
+         ColumnVector v = ColumnVector.concatenate(res1, res2);
+         HostColumnVector hostColumnVector = v.copyToHost()) {
       List<Integer> ret = hostColumnVector.getListParent(5);
       System.out.println("Guess we passed!"+ret.size() + " v size ="+v.getRowCount());
     } catch (Exception e) {

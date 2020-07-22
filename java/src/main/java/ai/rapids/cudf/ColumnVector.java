@@ -197,13 +197,13 @@ public final class ColumnVector extends BaseColumnVector implements AutoCloseabl
     refCount--;
     offHeap.delRef();
     if (refCount == 0) {
+      if (this.listColumnVector != null) {
+        listColumnVector.close();
+      }
       offHeap.clean(false);
     } else if (refCount < 0) {
       offHeap.logRefCountDebug("double free " + this);
       throw new IllegalStateException("Close called too many times " + this);
-    }
-    if (this.listColumnVector != null) {
-      listColumnVector.close();
     }
   }
 

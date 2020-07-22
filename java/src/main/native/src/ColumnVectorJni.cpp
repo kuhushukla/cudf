@@ -101,7 +101,7 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_concatenate(JNIEnv *env
     if (columns_vector[0].type().id() == cudf::type_id::LIST) {
       result = cudf::lists::detail::concatenate(columns_vector);
     } else {
-      std::unique_ptr<column> result = cudf::concatenate(columns_vector);
+      result = cudf::concatenate(columns_vector);
     }
     return reinterpret_cast<jlong>(result.release());
   }
@@ -1267,6 +1267,42 @@ JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getChildrenPoi
         ret[i] = reinterpret_cast<jlong>(view.release());
 //        std::cout << "ret[i] = " << ret[i] << "\n";
         view = std::move(next_view);
+        i++;
+    }
+//    std::cout << "RETURNING\n";
+    return ret.get_jArray();
+
+  //CATCH_STD(env, 0);
+}
+
+JNIEXPORT jlongArray JNICALL Java_ai_rapids_cudf_BaseColumnVector_getChildrenColumnPointers(JNIEnv *env,
+                                                                                   jobject j_object,
+                                                                                   jlong handle) {
+    cudf::jni::auto_set_device(env);
+    //hard coded
+    cudf::jni::native_jlongArray ret(env, 3);
+    cudf::column *column = reinterpret_cast<cudf::column *>(handle);
+    //get list cv
+    std::unique_ptr<cudf::column> list_col = std::make_unique<cudf::column>(*column);
+    int i =0;
+//    std::cout << "LIST 0\n" << column->type().id() << "\n";
+//    std::cout << "LIST 0\n";
+    while(list_col != nullptr) {
+//    std::cout << " view offsets =" << view->offsets().data<char>();
+        std::unique_ptr<cudf::column> next_col;
+        cudf::column child_col = list_col->child(1);
+//        std::cout << "LIST 1\n" << child_view.type().id() << "\n";
+        if (child_col.type().id() == cudf::type_id::LIST) {
+//        std::cout << "LIST AGAIN\n";
+          next_col = std::make_unique<cudf::column>(child_col);
+        } else {
+          ret[i+1] = reinterpret_cast<jlong>(std::make_unique<cudf::column>(child_col).release());
+//          std::cout << "LIST ELSE " << ret[i+1] << "\n";
+          next_col = nullptr;
+        }
+        ret[i] = reinterpret_cast<jlong>(list_col.release());
+//        std::cout << "ret[i] = " << ret[i] << "\n";
+        list_col = std::move(next_col);
         i++;
     }
 //    std::cout << "RETURNING\n";
