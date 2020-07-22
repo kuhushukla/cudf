@@ -18,6 +18,7 @@
 #include <cudf/binaryop.hpp>
 #include <cudf/column/column_factories.hpp>
 #include <cudf/concatenate.hpp>
+#include <cudf/lists/detail/concatenate.hpp>
 #include <cudf/datetime.hpp>
 #include <cudf/filling.hpp>
 #include <cudf/quantiles.hpp>
@@ -96,7 +97,12 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_cudf_ColumnVector_concatenate(JNIEnv *env
       JNI_NULL_CHECK(env, columns[i], "column to concat is null", 0);
       columns_vector[i] = *columns[i];
     }
-    std::unique_ptr<column> result = cudf::concatenate(columns_vector);
+    std::unique_ptr<column> result;
+    if (columns_vector[0].type().id() == cudf::type_id::LIST) {
+      result = cudf::lists::detail::concatenate(columns_vector);
+    } else {
+      std::unique_ptr<column> result = cudf::concatenate(columns_vector);
+    }
     return reinterpret_cast<jlong>(result.release());
   }
   CATCH_STD(env, 0);
