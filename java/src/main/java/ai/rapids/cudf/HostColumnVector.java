@@ -21,14 +21,12 @@ package ai.rapids.cudf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 
 /**
@@ -441,6 +439,7 @@ public final class HostColumnVector implements AutoCloseable {
       }
     }
   }
+
   /////////////////////////////////////////////////////////////////////////////
   // DATA ACCESS
   /////////////////////////////////////////////////////////////////////////////
@@ -465,8 +464,6 @@ public final class HostColumnVector implements AutoCloseable {
     }
     return retList;
   }
-
-
 
   /**
    * Check if the value at index is null or not.
@@ -656,7 +653,7 @@ public final class HostColumnVector implements AutoCloseable {
    */
   public String getJavaString(long index) {
     byte[] rawData = getUTF8(index);
-    return new String(rawData, UTF_8);
+    return new String(rawData, StandardCharsets.UTF_8);
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -713,7 +710,6 @@ public final class HostColumnVector implements AutoCloseable {
       }
       if (offsets != null) {
         offsets.noWarnLeakExpected();
-
       }
     }
 
@@ -972,7 +968,7 @@ public final class HostColumnVector implements AutoCloseable {
       if (s == null) {
         nullCount++;
       } else {
-        bufferSize += s.getBytes(UTF_8).length;
+        bufferSize += s.getBytes(StandardCharsets.UTF_8).length;
       }
     }
     if (nullCount > 0) {
@@ -1210,6 +1206,7 @@ public final class HostColumnVector implements AutoCloseable {
    */
 
   public static final class ColumnBuilder implements  AutoCloseable {
+
     public static final int INIT_OFFSET_SIZE = 10;
     private DType type;
     private HostMemoryBuffer data;

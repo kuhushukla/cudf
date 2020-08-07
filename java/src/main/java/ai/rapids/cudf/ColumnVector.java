@@ -348,7 +348,8 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable, Column
   // DATA MOVEMENT
   /////////////////////////////////////////////////////////////////////////////
 
-  private final static HostColumnVector.NestedHostColumnVector copyToHostNestedHelper(ColumnViewPointerAccess<BaseDeviceMemoryBuffer> deviceCvPointer) {
+  private final static HostColumnVector.NestedHostColumnVector copyToHostNestedHelper(
+      ColumnViewPointerAccess<BaseDeviceMemoryBuffer> deviceCvPointer) {
     if (deviceCvPointer == null) {
       return null;
     }
@@ -362,7 +363,6 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable, Column
     long currNullCount = 0l;
     boolean needsCleanup = true;
     try {
-
       long currRows = deviceCvPointer.getNumRows();
       DType currType = deviceCvPointer.getDataType();
       currData = deviceCvPointer.getDataBuffer();
@@ -385,7 +385,8 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable, Column
       }
       currNullCount = deviceCvPointer.getNullCount();
       Optional<Long> nullCount = Optional.of(currNullCount);
-      HostColumnVector.NestedHostColumnVector ret = new HostColumnVector.NestedHostColumnVector(currType, currRows, nullCount, hostData,
+      HostColumnVector.NestedHostColumnVector ret =
+          new HostColumnVector.NestedHostColumnVector(currType, currRows, nullCount, hostData,
           hostValid, hostOffsets, children);
       needsCleanup = false;
       return ret;
@@ -2829,7 +2830,7 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable, Column
   private static native long[] getNativeValidPointer(long viewHandle) throws CudfException;
 
   private static native long makeCudfColumnView(int type, long data, long dataSize, long offsets,
-                                                long valid, int nullCount, int size, long childHandle);
+      long valid, int nullCount, int size, long childHandle);
 
   private static native long getChildCvPointer(long viewHandle, int childIndex) throws CudfException;
 
@@ -3393,9 +3394,8 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable, Column
   }
 
   /**
-   * This method is evolving and unstable and currently test only.
+   * This method is evolving, unstable and currently test only.
    * Please use with caution and expect it to change in the future.
-   *
    */
   public static<T> ColumnVector fromLists(HostColumnVector.ColumnBuilder.DataType dataType, List<T>... lists) {
     try (HostColumnVector host = HostColumnVector.fromLists(dataType, lists)) {
